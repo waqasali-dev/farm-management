@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
 import { Flock, HealthStatus } from '../../types/index.js';
-import { api } from '../../lib/api-client.js';
-import { Plus, CheckCircle, Lock, Calendar, Layers } from 'lucide-react';
+import { useFlocksQuery, useCloseFlockMutation } from '../../lib/queries.js';
+import { Plus, Layers } from 'lucide-react';
 import { CreateFlockModal } from './CreateFlockModal.js';
 
 interface OutletContextType {
@@ -13,16 +13,14 @@ interface OutletContextType {
 }
 
 export const FlocksPage: React.FC = () => {
-  const { activeFlock, flocks, refreshFlocks } = useOutletContext<OutletContextType>();
+  const { activeFlock } = useOutletContext<OutletContextType>();
   const [filter, setFilter] = useState<'all' | 'active' | 'closed'>('all');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [closingId, setClosingId] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  const filteredFlocks = flocks.filter((f) => {
-    if (filter === 'all') return true;
-    return f.status === filter;
-  });
+  // TanStack Query for Flocks List
+  const { data: flocks = [], isLoading } = useFlocksQuery(filter === 'all' ? undefined : filter);
+  const closeFlockMutation = useCloseFlockMutation();
 
   const handleCloseFlock = async (flock: Flock) => {
     if (
@@ -31,13 +29,9 @@ export const FlocksPage: React.FC = () => {
       )
     ) {
       try {
-        setClosingId(flock.id);
-        await api.closeFlock(flock.id);
-        await refreshFlocks();
+        await closeFlockMutation.mutateAsync(flock.id);
       } catch (err: any) {
         alert(`Error: ${err.message}`);
-      } finally {
-        setClosingId(null);
       }
     }
   };
@@ -45,7 +39,6 @@ export const FlocksPage: React.FC = () => {
   const handleSetActive = (flock: Flock) => {
     localStorage.setItem('active_flock_id', flock.id);
     navigate(`/dashboard?flock=${flock.id}`);
-    window.location.reload();
   };
 
   return (
@@ -106,14 +99,20 @@ export const FlocksPage: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-200 text-xs font-mono">
-              {filteredFlocks.length === 0 ? (
+              {isLoading ? (
+                <tr>
+                  <td colSpan={7} className="text-center py-12 text-zinc-500 font-mono">
+                    Loading flocks from database...
+                  </td>
+                </tr>
+              ) : flocks.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="text-center py-12 text-zinc-500 font-mono">
                     No flocks found matching current filter.
                   </td>
                 </tr>
               ) : (
-                filteredFlocks.map((flock) => {
+                flocks.map((flock) => {
                   const isCurrent = activeFlock?.id === flock.id;
 
                   return (
@@ -176,8 +175,8 @@ export const FlocksPage: React.FC = () => {
                         {flock.status === 'active' && (
                           <button
                             onClick={() => handleCloseFlock(flock)}
-                            disabled={closingId === flock.id}
-                            className="border border-zinc-400 text-zinc-700 px-2 py-1 text-[11px] uppercase hover:bg-zinc-200"
+                            disabled={closeFlockMutation.isPending}
+                            className="border border-zinc-400 text-zinc-700 px-2 py-1 text-[11px] uppercase hover:bg-zinc-200 disabled:opacity-50"
                             title="Close flock and mark read-only"
                           >
                             Close
@@ -196,7 +195,7 @@ export const FlocksPage: React.FC = () => {
       <CreateFlockModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
-        onCreated={() => refreshFlocks()}
+        onCreated={() => {}}
       />
     </div>
   );

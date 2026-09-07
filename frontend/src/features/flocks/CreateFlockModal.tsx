@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { api } from '../../lib/api-client.js';
+import { useCreateFlockMutation } from '../../lib/queries.js';
 import { Flock } from '../../types/index.js';
-import { X, Check } from 'lucide-react';
+import { X } from 'lucide-react';
 
 interface CreateFlockModalProps {
   isOpen: boolean;
@@ -18,8 +18,9 @@ export const CreateFlockModal: React.FC<CreateFlockModalProps> = ({
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [initialBirds, setInitialBirds] = useState<number | ''>(10000);
   const [eggTrackingEnabled, setEggTrackingEnabled] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const createFlockMutation = useCreateFlockMutation();
 
   if (!isOpen) return null;
 
@@ -35,9 +36,8 @@ export const CreateFlockModal: React.FC<CreateFlockModalProps> = ({
     }
 
     try {
-      setIsSubmitting(true);
       setError(null);
-      const newFlock = await api.createFlock({
+      const newFlock = await createFlockMutation.mutateAsync({
         name: name.trim(),
         startDate,
         initialBirds: Number(initialBirds),
@@ -52,8 +52,6 @@ export const CreateFlockModal: React.FC<CreateFlockModalProps> = ({
       setEggTrackingEnabled(false);
     } catch (err: any) {
       setError(err.message || 'Failed to create flock');
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -146,7 +144,7 @@ export const CreateFlockModal: React.FC<CreateFlockModalProps> = ({
           </div>
 
           <div className="p-3 bg-zinc-100 border border-zinc-300 text-[11px] font-mono text-zinc-600">
-            ℹ️ Flock code will be automatically assigned (e.g. FL-003) and immutable UUID generated.
+            ℹ️ Flock code will be automatically assigned (e.g. FL-004) and stored in PostgreSQL.
           </div>
 
           {/* Actions */}
@@ -160,10 +158,10 @@ export const CreateFlockModal: React.FC<CreateFlockModalProps> = ({
             </button>
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={createFlockMutation.isPending}
               className="px-5 py-2 text-xs font-bold uppercase tracking-wider bg-black text-white border border-black hover:bg-zinc-800 transition-colors shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] disabled:opacity-50"
             >
-              {isSubmitting ? 'Creating...' : 'Create Flock'}
+              {createFlockMutation.isPending ? 'Creating...' : 'Create Flock'}
             </button>
           </div>
         </form>

@@ -1,7 +1,8 @@
 import React from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { Flock, HealthStatus } from '../../types/index.js';
-import { Database, Server, Terminal, ShieldCheck, CheckCircle2, AlertCircle } from 'lucide-react';
+import { useHealthQuery } from '../../lib/queries.js';
+import { Database, Server, Terminal, RefreshCw } from 'lucide-react';
 
 interface OutletContextType {
   activeFlock: Flock | null;
@@ -11,7 +12,9 @@ interface OutletContextType {
 }
 
 export const SettingsPage: React.FC = () => {
-  const { health } = useOutletContext<OutletContextType>();
+  const { data: healthData, refetch, isFetching } = useHealthQuery();
+  const context = useOutletContext<OutletContextType>();
+  const health = healthData || context.health;
 
   const isDbConnected = health?.connections.database.connected;
   const isRedisConnected = health?.connections.redis.connected;

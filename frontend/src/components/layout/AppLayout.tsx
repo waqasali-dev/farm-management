@@ -2,59 +2,38 @@ import React, { useState, useEffect } from 'react';
 import { Outlet, useSearchParams } from 'react-router-dom';
 import { Header } from './Header.js';
 import { Sidebar } from './Sidebar.js';
-import { api } from '../../lib/api-client.js';
-import { Flock, HealthStatus } from '../../types/index.js';
+import { useFlocksQuery, useHealthQuery } from '../../lib/queries.js';
+import { Flock } from '../../types/index.js';
 import { CreateFlockModal } from '../../features/flocks/CreateFlockModal.js';
 
 export const AppLayout: React.FC = () => {
-  const [flocks, setFlocks] = useState<Flock[]>([]);
+  const { data: flocks = [], refetch: refetchFlocks } = useFlocksQuery();
+  const { data: health } = useHealthQuery();
+
   const [activeFlock, setActiveFlock] = useState<Flock | null>(null);
-  const [health, setHealth] = useState<HealthStatus | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
 
-  // Load flocks and health
-  const refreshFlocks = async () => {
-    try {
-      const data = await api.getFlocks();
-      setFlocks(data);
-
-      // Select flock from query param or localStorage or first active flock
-      const queryFlockId = searchParams.get('flock');
-      const savedFlockId = localStorage.getItem('active_flock_id');
-
-      let target = data.find((f) => f.id === queryFlockId);
-      if (!target && savedFlockId) {
-        target = data.find((f) => f.id === savedFlockId);
-      }
-      if (!target && data.length > 0) {
-        target = data.find((f) => f.status === 'active') || data[0];
-      }
-
-      if (target) {
-        setActiveFlock(target);
-        localStorage.setItem('active_flock_id', target.id);
-      }
-    } catch (err) {
-      console.error('Failed to load flocks:', err);
-    }
-  };
-
-  const refreshHealth = async () => {
-    try {
-      const data = await api.getHealth();
-      setHealth(data);
-    } catch {
-      // Backend is temporarily offline or loading
-    }
-  };
-
+  // Synchronize active flock from URL, localStorage, or first active flock
   useEffect(() => {
-    refreshFlocks();
-    refreshHealth();
-    const interval = setInterval(refreshHealth, 15000); // Poll health every 15s
-    return () => clearInterval(interval);
-  }, []);
+    if (flocks.length === 0) return;
+
+    const queryFlockId = searchParams.get('flock');
+    const savedFlockId = localStorage.getItem('active_flock_id');
+
+    let target = flocks.find((f) => f.id === queryFlockId);
+    if (!target && savedFlockId) {
+      target = flocks.find((f) => f.id === savedFlockId);
+    }
+    if (!target) {
+      target = flocks.find((f) => f.status === 'active') || flocks[0];
+    }
+
+    if (target) {
+      setActiveFlock(target);
+      localStorage.setItem('active_flock_id', target.id);
+    }
+  }, [flocks, searchParams]);
 
   const handleSelectFlock = (flock: Flock) => {
     setActiveFlock(flock);
@@ -75,7 +54,7 @@ export const AppLayout: React.FC = () => {
         <Sidebar activeFlock={activeFlock} />
 
         <main className="flex-1 overflow-y-auto p-6 md:p-8 bg-zinc-50">
-          <Outlet context={{ activeFlock, flocks, refreshFlocks, health }} />
+          <Outlet context={{ activeFlock, flocks, refreshFlocks: refetchFlocks, health }} />
         </main>
       </div>
 
@@ -83,7 +62,7 @@ export const AppLayout: React.FC = () => {
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onCreated={(newFlock) => {
-          refreshFlocks();
+          refetchFlocks();
           handleSelectFlock(newFlock);
         }}
       />

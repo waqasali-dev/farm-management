@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useOutletContext, useSearchParams, useNavigate } from 'react-router-dom';
-import { Flock, DashboardData, HealthStatus } from '../../types/index.js';
-import { api } from '../../lib/api-client.js';
+import { Flock, HealthStatus } from '../../types/index.js';
+import { useDashboardQuery } from '../../lib/queries.js';
 import {
   Calendar,
   AlertTriangle,
@@ -41,28 +41,15 @@ export const DashboardPage: React.FC = () => {
   const [date, setDate] = useState<string>(
     searchParams.get('date') || new Date().toISOString().split('T')[0]
   );
-  const [data, setData] = useState<DashboardData | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  const fetchDashboardData = async (flockId: string, targetDate: string) => {
-    try {
-      setLoading(true);
-      setError(null);
-      const res = await api.getDashboard(flockId, targetDate);
-      setData(res);
-    } catch (err: any) {
-      setError(err.message || 'Failed to load dashboard metrics');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (activeFlock?.id) {
-      fetchDashboardData(activeFlock.id, date);
-    }
-  }, [activeFlock?.id, date]);
+  // TanStack Query for Dashboard Metrics (Section 30, 31)
+  const {
+    data,
+    isLoading,
+    isFetching,
+    error: queryError,
+    refetch,
+  } = useDashboardQuery(activeFlock?.id, date);
 
   const handleDateChange = (newDate: string) => {
     setDate(newDate);
@@ -141,11 +128,11 @@ export const DashboardPage: React.FC = () => {
           </button>
 
           <button
-            onClick={() => fetchDashboardData(activeFlock.id, date)}
+            onClick={() => refetch()}
             className="border border-black p-2 hover:bg-zinc-100"
             title="Refresh"
           >
-            <RefreshCw className={`w-3.5 h-3.5 text-black ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 text-black ${isFetching ? 'animate-spin' : ''}`} />
           </button>
 
           <button
@@ -173,9 +160,9 @@ export const DashboardPage: React.FC = () => {
         </div>
       )}
 
-      {error && (
+      {queryError && (
         <div className="border border-black bg-zinc-100 p-4 text-xs font-mono">
-          [ERROR] {error}
+          [ERROR] {queryError.message}
         </div>
       )}
 
@@ -191,7 +178,7 @@ export const DashboardPage: React.FC = () => {
               <TrendingDown className="w-4 h-4 text-black" />
             </div>
             <div className="text-3xl font-bold font-tabular tracking-tight">
-              {data ? data.birds.remaining.toLocaleString() : '---'}
+              {isLoading ? '...' : (data ? data.birds.remaining.toLocaleString() : '---')}
             </div>
             <div className="text-[11px] font-mono text-zinc-500 mt-1">
               Active living birds
@@ -220,7 +207,7 @@ export const DashboardPage: React.FC = () => {
               <Package className="w-4 h-4 text-black" />
             </div>
             <div className="text-3xl font-bold font-tabular tracking-tight">
-              {data ? `${data.feed.remainingBags.toLocaleString()} Bags` : '---'}
+              {isLoading ? '...' : (data ? `${data.feed.remainingBags.toLocaleString()} Bags` : '---')}
             </div>
             <div className="text-[11px] font-mono text-zinc-500 mt-1">
               {data ? `${(data.feed.remainingBags * 50).toLocaleString()} kg in stock` : ''}
@@ -250,7 +237,7 @@ export const DashboardPage: React.FC = () => {
                 <Egg className="w-4 h-4 text-black" />
               </div>
               <div className="text-2xl font-bold font-tabular tracking-tight">
-                {data?.eggs?.stockFormatted ?? '0 Peti, 0 Trays'}
+                {isLoading ? '...' : (data?.eggs?.stockFormatted ?? '0 Peti, 0 Trays')}
               </div>
               <div className="text-[11px] font-mono text-zinc-500 mt-1">
                 {data?.eggs?.currentStockEggs ? `${data.eggs.currentStockEggs.toLocaleString()} total eggs in stock` : '0 eggs'}
@@ -271,7 +258,6 @@ export const DashboardPage: React.FC = () => {
             </div>
           </div>
         ) : (
-          /* Card 3 (Alternative for meat flocks): Diesel Generator Fuel */
           <div className="panel p-5 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between border-b border-black pb-2 mb-3">
@@ -281,7 +267,7 @@ export const DashboardPage: React.FC = () => {
                 <Fuel className="w-4 h-4 text-black" />
               </div>
               <div className="text-3xl font-bold font-tabular tracking-tight">
-                {data ? `${data.diesel.remainingLiters.toFixed(1)} L` : '---'}
+                {isLoading ? '...' : (data ? `${data.diesel.remainingLiters.toFixed(1)} L` : '---')}
               </div>
               <div className="text-[11px] font-mono text-zinc-500 mt-1">
                 Generator & operations reserve
@@ -311,7 +297,7 @@ export const DashboardPage: React.FC = () => {
               <Droplets className="w-4 h-4 text-black" />
             </div>
             <div className="text-3xl font-bold font-tabular tracking-tight">
-              {data ? `${data.water.liters.toLocaleString()} L` : '---'}
+              {isLoading ? '...' : (data ? `${data.water.liters.toLocaleString()} L` : '---')}
             </div>
             <div className="text-[11px] font-mono text-zinc-500 mt-1">
               Water intake today
@@ -324,7 +310,7 @@ export const DashboardPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Card 5: Diesel (If Egg card was shown above, show diesel here) */}
+        {/* Card 5: Diesel (if egg card shown) */}
         {activeFlock.eggTrackingEnabled && (
           <div className="panel p-5 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex flex-col justify-between">
             <div>
@@ -335,7 +321,7 @@ export const DashboardPage: React.FC = () => {
                 <Fuel className="w-4 h-4 text-black" />
               </div>
               <div className="text-3xl font-bold font-tabular tracking-tight">
-                {data ? `${data.diesel.remainingLiters.toFixed(1)} L` : '---'}
+                {isLoading ? '...' : (data ? `${data.diesel.remainingLiters.toFixed(1)} L` : '---')}
               </div>
               <div className="text-[11px] font-mono text-zinc-500 mt-1">
                 Generator & equipment reserve
@@ -365,7 +351,7 @@ export const DashboardPage: React.FC = () => {
               <Scale className="w-4 h-4 text-black" />
             </div>
             <div className="text-3xl font-bold font-tabular tracking-tight">
-              {data?.weight ? `${data.weight.weight} g` : 'No Record'}
+              {isLoading ? '...' : (data?.weight ? `${data.weight.weight} g` : 'No Record')}
             </div>
             <div className="text-[11px] font-mono text-zinc-500 mt-1">
               {data?.weight ? `Weighed on ${data.weight.date}` : 'Record weight on sample day'}
@@ -379,7 +365,7 @@ export const DashboardPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Monochrome Charts (Section 46: Strictly Monochrome) */}
+      {/* Monochrome Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-4">
         {/* Chart 1: Daily Mortality Trend */}
         <div className="panel p-5 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
