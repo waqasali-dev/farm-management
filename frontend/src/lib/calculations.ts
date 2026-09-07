@@ -39,3 +39,30 @@ export function calculateWaterPerBirdMl(waterLiters: number, remainingBirds: num
   if (remainingBirds <= 0 || waterLiters <= 0) return 0;
   return Number(((waterLiters * 1000) / remainingBirds).toFixed(2));
 }
+
+export function calculateRemainingBirds(initialBirds: number, cumulativeMortality: number): number {
+  const safeInitial = Math.max(0, Number(initialBirds) || 0);
+  const safeMortality = Math.max(0, Number(cumulativeMortality) || 0);
+  return Math.max(0, safeInitial - safeMortality);
+}
+
+export function calculateBirdAge(targetDateStr: string, startDateStr: string): {
+  week: number;
+  day: number;
+  totalDays: number;
+  formatted: string;
+} {
+  const target = new Date(targetDateStr);
+  const start = new Date(startDateStr);
+  const diffTime = target.getTime() - start.getTime();
+  const totalDays = Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
+  const day = target.getDay(); // 0 = Sunday (Day 00)
+  const week = Math.floor(totalDays / 7);
+  const formattedDay = day < 10 ? `0${day}` : `${day}`;
+  return {
+    week,
+    day,
+    totalDays,
+    formatted: `W${week}-D${formattedDay}`,
+  };
+}

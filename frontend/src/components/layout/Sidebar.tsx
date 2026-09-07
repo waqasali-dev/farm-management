@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   CalendarDays, 
@@ -16,6 +16,26 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ activeFlock }) => {
   const flockId = activeFlock?.id || '';
+  const location = useLocation();
+
+  const isLinkActive = (to: string, label: string): boolean => {
+    if (label === 'Dashboard') {
+      return location.pathname === '/dashboard' || location.pathname === '/';
+    }
+    if (label === 'Flocks Management') {
+      return location.pathname === '/flocks';
+    }
+    if (label === 'Daily Record') {
+      return location.pathname.endsWith('/daily');
+    }
+    if (label === 'Reports & Audits') {
+      return location.pathname.endsWith('/reports');
+    }
+    if (label === 'System & Infra') {
+      return location.pathname === '/settings';
+    }
+    return false;
+  };
 
   const links = [
     {
@@ -72,13 +92,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeFlock }) => {
               );
             }
 
+            const active = isLinkActive(link.to, link.label);
+
             return (
               <NavLink
                 key={link.label}
                 to={link.to}
-                className={({ isActive }) =>
+                className={
                   `flex items-center gap-3 px-3 py-2 text-xs font-semibold uppercase tracking-wider transition-all duration-150 border ${
-                    isActive
+                    active
                       ? 'bg-black text-white border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'
                       : 'text-black border-transparent hover:bg-zinc-100 hover:border-zinc-300'
                   }`

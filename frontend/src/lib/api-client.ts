@@ -35,6 +35,15 @@ export const api = {
     startDate: string;
     initialBirds: number;
     eggTrackingEnabled: boolean;
+    isRunningFlock?: boolean;
+    openingBalances?: {
+      cumulativeMortality?: number;
+      remainingFeedBags?: number;
+      remainingEggPeti?: number;
+      remainingEggTrays?: number;
+      remainingDieselLiters?: number;
+      asOfDate?: string;
+    };
   }) => fetchJson<Flock>('/flocks', {
     method: 'POST',
     body: JSON.stringify(data),

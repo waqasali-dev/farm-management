@@ -32,12 +32,7 @@ export function useFlockQuery(flockId?: string) {
 export function useCreateFlockMutation() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: {
-      name: string;
-      startDate: string;
-      initialBirds: number;
-      eggTrackingEnabled: boolean;
-    }) => api.createFlock(data),
+    mutationFn: (data: Parameters<typeof api.createFlock>[0]) => api.createFlock(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.flocks.all() });
     },

@@ -11,6 +11,15 @@ const createFlockSchema = z.object({
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Start date must be YYYY-MM-DD'),
   initialBirds: z.number().int().positive('Initial birds must be greater than zero'),
   eggTrackingEnabled: z.boolean().default(false),
+  isRunningFlock: z.boolean().optional().default(false),
+  openingBalances: z.object({
+    cumulativeMortality: z.number().int().min(0).default(0),
+    remainingFeedBags: z.number().int().min(0).default(0),
+    remainingEggPeti: z.number().int().min(0).default(0),
+    remainingEggTrays: z.number().int().min(0).default(0),
+    remainingDieselLiters: z.number().min(0).default(0),
+    asOfDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  }).optional(),
 });
 
 const updateFlockSchema = z.object({
@@ -83,7 +92,12 @@ export const flockRoutes: FastifyPluginAsync = async (fastify) => {
       return errorResponse(parsed.error.errors[0].message, 'VALIDATION_ERROR', parsed.error.format());
     }
 
-    const { name, startDate, initialBirds, eggTrackingEnabled } = parsed.data;
+    const { name, startDate, initialBirds, eggTrackingEnabled, isRunningFlock, openingBalances } = parsed.data;
+
+    if (isRunningFlock && openingBalances && openingBalances.cumulativeMortality >= initialBirds) {
+      reply.status(400);
+      return errorResponse('Cumulative mortality cannot exceed or equal initial birds placed.', 'VALIDATION_ERROR');
+    }
 
     if (isDatabaseConnected()) {
       try {
@@ -100,21 +114,79 @@ export const flockRoutes: FastifyPluginAsync = async (fastify) => {
         const existingFlocks = await db.select().from(schema.flocks);
         const flockCode = `FL-${String(existingFlocks.length + 1).padStart(3, '0')}`;
 
-        const [newFlock] = await db
-          .insert(schema.flocks)
-          .values({
-            farmId: farm.id,
-            flockCode,
-            name,
-            startDate,
-            initialBirds,
-            eggTrackingEnabled,
-            status: 'active',
-          })
-          .returning();
+        const createdFlock = await db.transaction(async (tx) => {
+          const [newFlock] = await tx
+            .insert(schema.flocks)
+            .values({
+              farmId: farm.id,
+              flockCode,
+              name,
+              startDate,
+              initialBirds,
+              eggTrackingEnabled,
+              status: 'active',
+            })
+            .returning();
 
+          if (isRunningFlock && openingBalances) {
+            const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+            let baselineDate = openingBalances.asOfDate || yesterday;
+            if (baselineDate < startDate) {
+              baselineDate = startDate;
+            }
+
+            // 1. Mortality to date
+            if (openingBalances.cumulativeMortality > 0) {
+              await tx.insert(schema.birdDailyRecords).values({
+                farmId: farm.id,
+                flockId: newFlock.id,
+                date: baselineDate,
+                mortality: openingBalances.cumulativeMortality,
+              });
+            }
+
+            // 2. Remaining feed bags
+            if (openingBalances.remainingFeedBags > 0) {
+              await tx.insert(schema.feedDailyRecords).values({
+                farmId: farm.id,
+                flockId: newFlock.id,
+                date: baselineDate,
+                arrivalBags: openingBalances.remainingFeedBags,
+                usedBags: 0,
+              });
+            }
+
+            // 3. Remaining eggs in stock
+            if (eggTrackingEnabled && (openingBalances.remainingEggPeti > 0 || openingBalances.remainingEggTrays > 0)) {
+              await tx.insert(schema.eggDailyRecords).values({
+                farmId: farm.id,
+                flockId: newFlock.id,
+                date: baselineDate,
+                productionPeti: openingBalances.remainingEggPeti,
+                productionTrays: openingBalances.remainingEggTrays,
+                soldPeti: 0,
+                soldTrays: 0,
+              });
+            }
+
+            // 4. Remaining diesel
+            if (openingBalances.remainingDieselLiters > 0) {
+              await tx.insert(schema.dieselDailyRecords).values({
+                farmId: farm.id,
+                flockId: newFlock.id,
+                date: baselineDate,
+                arrivalLiters: String(openingBalances.remainingDieselLiters),
+                usedLiters: '0',
+              });
+            }
+          }
+
+          return newFlock;
+        });
+
+        await flushFlockCache(createdFlock.id);
         reply.status(201);
-        return successResponse(newFlock);
+        return successResponse(createdFlock);
       } catch (err: any) {
         reply.status(500);
         return errorResponse(err.message || 'Database insert failed');
@@ -139,6 +211,58 @@ export const flockRoutes: FastifyPluginAsync = async (fastify) => {
     };
 
     mockStore.flocks.unshift(newFlock);
+
+    if (isRunningFlock && openingBalances) {
+      const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+      let baselineDate = openingBalances.asOfDate || yesterday;
+      if (baselineDate < startDate) baselineDate = startDate;
+
+      if (openingBalances.cumulativeMortality > 0) {
+        mockStore.birdRecords.push({
+          id: crypto.randomUUID(),
+          farmId: newFlock.farmId,
+          flockId: newFlock.id,
+          date: baselineDate,
+          mortality: openingBalances.cumulativeMortality,
+          lightHours: null,
+          maxTemperature: null,
+          minTemperature: null,
+        });
+      }
+      if (openingBalances.remainingFeedBags > 0) {
+        mockStore.feedRecords.push({
+          id: crypto.randomUUID(),
+          farmId: newFlock.farmId,
+          flockId: newFlock.id,
+          date: baselineDate,
+          arrivalBags: openingBalances.remainingFeedBags,
+          usedBags: 0,
+        });
+      }
+      if (eggTrackingEnabled && (openingBalances.remainingEggPeti > 0 || openingBalances.remainingEggTrays > 0)) {
+        mockStore.eggRecords.push({
+          id: crypto.randomUUID(),
+          farmId: newFlock.farmId,
+          flockId: newFlock.id,
+          date: baselineDate,
+          productionPeti: openingBalances.remainingEggPeti,
+          productionTrays: openingBalances.remainingEggTrays,
+          soldPeti: 0,
+          soldTrays: 0,
+        });
+      }
+      if (openingBalances.remainingDieselLiters > 0) {
+        mockStore.dieselRecords.push({
+          id: crypto.randomUUID(),
+          farmId: newFlock.farmId,
+          flockId: newFlock.id,
+          date: baselineDate,
+          arrivalLiters: openingBalances.remainingDieselLiters,
+          usedLiters: 0,
+        });
+      }
+    }
+
     reply.status(201);
     return successResponse(newFlock);
   });
