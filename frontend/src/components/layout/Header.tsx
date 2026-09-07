@@ -32,7 +32,7 @@ export const Header: React.FC<HeaderProps> = ({
   const isRedisConnected = health?.connections.redis.connected;
 
   return (
-    <header className="h-16 border-b border-black bg-white px-6 flex items-center justify-between sticky top-0 z-30">
+    <header className="h-16 border-b border-black bg-white px-6 flex items-center justify-between sticky top-0 z-30 shrink-0">
       {/* Brand & Farm Title */}
       <div className="flex items-center gap-4">
         <div className="w-8 h-8 bg-black text-white flex items-center justify-center font-mono font-bold text-sm tracking-tighter">

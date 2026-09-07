@@ -68,7 +68,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeFlock }) => {
   ];
 
   return (
-    <aside className="w-64 bg-white border-r border-black flex flex-col justify-between shrink-0 select-none min-h-[calc(100vh-64px)]">
+    <aside className="w-64 bg-white border-r border-black flex flex-col justify-between shrink-0 select-none h-full overflow-y-auto">
       <div className="py-4">
         <div className="px-5 mb-4">
           <p className="text-[10px] tracking-widest uppercase font-semibold text-zinc-500">

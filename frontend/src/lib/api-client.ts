@@ -81,6 +81,15 @@ export const api = {
   getMortalityReport: (flockId: string) =>
     fetchJson<{ flock: Flock; rows: any[] }>(`/flocks/${flockId}/reports/mortality`),
 
+  getDieselReport: (flockId: string) =>
+    fetchJson<{ flock?: Flock; rows: any[] }>(`/flocks/${flockId}/reports/diesel`),
+
+  getWeightReport: (flockId: string) =>
+    fetchJson<{ flock?: Flock; rows: any[] }>(`/flocks/${flockId}/reports/weight`),
+
+  getHealthReport: (flockId: string) =>
+    fetchJson<{ flock?: Flock; rows: any[] }>(`/flocks/${flockId}/reports/health`),
+
   // Medicines Master
   getMedicines: () => fetchJson<{ id: string; name: string; active: boolean }[]>('/medicines'),
 };

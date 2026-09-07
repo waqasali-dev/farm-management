@@ -79,6 +79,8 @@ CREATE TABLE IF NOT EXISTS bird_daily_records (
     flock_id UUID NOT NULL REFERENCES flocks(id) ON DELETE CASCADE,
     date DATE NOT NULL,
     mortality INTEGER DEFAULT 0 NOT NULL CHECK (mortality >= 0),
+    moat INTEGER DEFAULT 0 NOT NULL CHECK (moat >= 0), -- Collective died birds from flock start to date
+    moat_percentage NUMERIC(6, 3) DEFAULT 0 NOT NULL CHECK (moat_percentage >= 0), -- Moat % of initial birds placed
     light_hours NUMERIC(4, 2) CHECK (light_hours >= 0 AND light_hours <= 24),
     max_temperature NUMERIC(5, 2),
     min_temperature NUMERIC(5, 2),

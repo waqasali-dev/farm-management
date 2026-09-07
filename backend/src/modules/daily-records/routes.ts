@@ -1,10 +1,15 @@
 import { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, lt, gt, asc, lte } from 'drizzle-orm';
 import { db, isDatabaseConnected, schema } from '../../db/client.js';
 import { mockStore } from '../../db/mock-store.js';
 import { successResponse, errorResponse } from '../../utils/response.js';
 import { flushFlockCache } from '../../db/redis.js';
+import {
+  petiTraysToEggs,
+  eggsToPetiTrays,
+  calculateBirdAge,
+} from '../../calculations/index.js';
 
 const dailyRecordSaveSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format'),
@@ -123,6 +128,65 @@ export const dailyRecordRoutes: FastifyPluginAsync = async (fastify) => {
           .from(schema.vaccinationRecords)
           .where(and(eq(schema.vaccinationRecords.flockId, flockId), eq(schema.vaccinationRecords.date, date)));
 
+        const priorBirdRecords = await db
+          .select()
+          .from(schema.birdDailyRecords)
+          .where(and(eq(schema.birdDailyRecords.flockId, flockId), lte(schema.birdDailyRecords.date, date)));
+
+        const cumulativeMoat = priorBirdRecords.reduce((sum, r) => sum + r.mortality, 0);
+        const cumulativeMoatPct = flock.initialBirds > 0 ? Number(((cumulativeMoat / flock.initialBirds) * 100).toFixed(3)) : 0;
+
+        // Feed prior balances and cumulative received
+        const allFeedUpToDate = await db
+          .select()
+          .from(schema.feedDailyRecords)
+          .where(and(eq(schema.feedDailyRecords.flockId, flockId), lte(schema.feedDailyRecords.date, date)));
+
+        const totalArrivalBagsTillNow = allFeedUpToDate.reduce((sum, r) => sum + r.arrivalBags, 0);
+        const priorFeed = allFeedUpToDate.filter((r) => r.date < date);
+        const previousFeedStockBags = Math.max(
+          0,
+          priorFeed.reduce((sum, r) => sum + r.arrivalBags, 0) - priorFeed.reduce((sum, r) => sum + r.usedBags, 0)
+        );
+
+        // Egg prior stock
+        let previousEggStock = { peti: 0, trays: 0, looseEggs: 0, formatted: '0 Peti, 0 Trays' };
+        if (flock.eggTrackingEnabled) {
+          const priorEggs = await db
+            .select()
+            .from(schema.eggDailyRecords)
+            .where(and(eq(schema.eggDailyRecords.flockId, flockId), lt(schema.eggDailyRecords.date, date)));
+
+          const priorUsage = await db
+            .select()
+            .from(schema.eggUsageRecords)
+            .where(and(eq(schema.eggUsageRecords.flockId, flockId), lt(schema.eggUsageRecords.date, date)));
+
+          let priorEggTotal = 0;
+          for (const r of priorEggs) {
+            priorEggTotal += petiTraysToEggs(r.productionPeti, r.productionTrays);
+            priorEggTotal -= petiTraysToEggs(r.soldPeti, r.soldTrays);
+          }
+          for (const u of priorUsage) {
+            priorEggTotal -= petiTraysToEggs(u.peti, u.trays);
+          }
+          previousEggStock = eggsToPetiTrays(Math.max(0, priorEggTotal));
+        }
+
+        // Diesel prior stock
+        const priorDiesel = await db
+          .select()
+          .from(schema.dieselDailyRecords)
+          .where(and(eq(schema.dieselDailyRecords.flockId, flockId), lt(schema.dieselDailyRecords.date, date)));
+
+        const previousDieselStockLiters = Math.max(
+          0,
+          priorDiesel.reduce((sum, r) => sum + parseFloat(r.arrivalLiters), 0) -
+            priorDiesel.reduce((sum, r) => sum + parseFloat(r.usedLiters), 0)
+        );
+
+        const birdAge = calculateBirdAge(date, flock.startDate);
+
         return successResponse({
           flockId,
           date,
@@ -130,10 +194,12 @@ export const dailyRecordRoutes: FastifyPluginAsync = async (fastify) => {
           eggTrackingEnabled: flock.eggTrackingEnabled,
           birds: bird ? {
             mortality: bird.mortality,
+            moat: bird.moat || cumulativeMoat,
+            moatPercentage: bird.moatPercentage ? parseFloat(bird.moatPercentage) : cumulativeMoatPct,
             lightHours: bird.lightHours ? parseFloat(bird.lightHours) : null,
             maxTemperature: bird.maxTemperature ? parseFloat(bird.maxTemperature) : null,
             minTemperature: bird.minTemperature ? parseFloat(bird.minTemperature) : null,
-          } : { mortality: 0, lightHours: null, maxTemperature: null, minTemperature: null },
+          } : { mortality: 0, moat: cumulativeMoat, moatPercentage: cumulativeMoatPct, lightHours: null, maxTemperature: null, minTemperature: null },
           feed: feed ? {
             arrivalBags: feed.arrivalBags,
             usedBags: feed.usedBags,
@@ -167,6 +233,13 @@ export const dailyRecordRoutes: FastifyPluginAsync = async (fastify) => {
             vaccineName: vaccination.vaccineName,
             notes: vaccination.notes,
           } : null,
+          priorBalances: {
+            previousFeedStockBags,
+            totalArrivalBagsTillNow,
+            previousEggStock,
+            previousDieselStockLiters,
+            birdAge,
+          },
         });
       } catch (err) {
         // Fall back to mock store
@@ -233,6 +306,13 @@ export const dailyRecordRoutes: FastifyPluginAsync = async (fastify) => {
         vaccineName: vaccination.vaccineName,
         notes: vaccination.notes,
       } : null,
+      priorBalances: {
+        previousFeedStockBags: 0,
+        totalArrivalBagsTillNow: 0,
+        previousEggStock: { peti: 0, trays: 0, looseEggs: 0, formatted: '0 Peti, 0 Trays' },
+        previousDieselStockLiters: 0,
+        birdAge: calculateBirdAge(date, flock.startDate),
+      },
     });
   });
 
@@ -268,6 +348,15 @@ export const dailyRecordRoutes: FastifyPluginAsync = async (fastify) => {
         await db.transaction(async (tx) => {
           // 1. Birds
           if (data.birds) {
+            const priorRecords = await tx
+              .select()
+              .from(schema.birdDailyRecords)
+              .where(and(eq(schema.birdDailyRecords.flockId, flockId), lt(schema.birdDailyRecords.date, date)));
+
+            const priorMortality = priorRecords.reduce((sum, r) => sum + r.mortality, 0);
+            const totalMoat = priorMortality + data.birds.mortality;
+            const moatPercentage = flock.initialBirds > 0 ? Number(((totalMoat / flock.initialBirds) * 100).toFixed(3)) : 0;
+
             const [existing] = await tx
               .select()
               .from(schema.birdDailyRecords)
@@ -278,6 +367,8 @@ export const dailyRecordRoutes: FastifyPluginAsync = async (fastify) => {
                 .update(schema.birdDailyRecords)
                 .set({
                   mortality: data.birds.mortality,
+                  moat: totalMoat,
+                  moatPercentage: String(moatPercentage),
                   lightHours: data.birds.lightHours ? String(data.birds.lightHours) : null,
                   maxTemperature: data.birds.maxTemperature ? String(data.birds.maxTemperature) : null,
                   minTemperature: data.birds.minTemperature ? String(data.birds.minTemperature) : null,
@@ -290,10 +381,33 @@ export const dailyRecordRoutes: FastifyPluginAsync = async (fastify) => {
                 flockId,
                 date,
                 mortality: data.birds.mortality,
+                moat: totalMoat,
+                moatPercentage: String(moatPercentage),
                 lightHours: data.birds.lightHours ? String(data.birds.lightHours) : null,
                 maxTemperature: data.birds.maxTemperature ? String(data.birds.maxTemperature) : null,
                 minTemperature: data.birds.minTemperature ? String(data.birds.minTemperature) : null,
               });
+            }
+
+            // Recalculate downstream records for subsequent dates if any
+            const subsequentRecords = await tx
+              .select()
+              .from(schema.birdDailyRecords)
+              .where(and(eq(schema.birdDailyRecords.flockId, flockId), gt(schema.birdDailyRecords.date, date)))
+              .orderBy(asc(schema.birdDailyRecords.date));
+
+            let runningMoat = totalMoat;
+            for (const sub of subsequentRecords) {
+              runningMoat += sub.mortality;
+              const subPct = flock.initialBirds > 0 ? Number(((runningMoat / flock.initialBirds) * 100).toFixed(3)) : 0;
+              await tx
+                .update(schema.birdDailyRecords)
+                .set({
+                  moat: runningMoat,
+                  moatPercentage: String(subPct),
+                  updatedAt: new Date(),
+                })
+                .where(eq(schema.birdDailyRecords.id, sub.id));
             }
           }
 

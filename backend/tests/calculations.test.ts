@@ -109,16 +109,23 @@ describe('Calculation Engine (Section 53)', () => {
   });
 
   describe('Bird Age & Day Convention', () => {
-    it('observes Sunday = Day 00 convention', () => {
-      // 2026-09-06 is Sunday
+    it('observes Sunday = Day 00 convention and 1-indexed week with two-digit format', () => {
+      // 2026-09-06 is Sunday, flock started 2026-08-01 (36 days -> Week 6, Day 00)
       const ageSunday = calculateBirdAge('2026-09-06', '2026-08-01');
       expect(ageSunday.day).toBe(0); // Sunday = Day 00
-      expect(ageSunday.formatted).toContain('-D00');
+      expect(ageSunday.week).toBe(6);
+      expect(ageSunday.formatted).toBe('W06-D00');
 
-      // 2026-09-07 is Monday
+      // 2026-09-07 is Monday (37 days -> Week 6, Day 01)
       const ageMonday = calculateBirdAge('2026-09-07', '2026-08-01');
       expect(ageMonday.day).toBe(1); // Monday = Day 01
-      expect(ageMonday.formatted).toContain('-D01');
+      expect(ageMonday.week).toBe(6);
+      expect(ageMonday.formatted).toBe('W06-D01');
+
+      // Day 15 test from user example: 5 April to 20 April (15 days -> Week 03)
+      const userExample = calculateBirdAge('2026-04-20', '2026-04-05');
+      expect(userExample.week).toBe(3);
+      expect(userExample.formatted).toContain('W03-');
     });
   });
 

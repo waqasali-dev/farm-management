@@ -8,9 +8,11 @@ import {
 } from '../../lib/queries.js';
 import {
   petiTraysToEggs,
+  eggsToPetiTrays,
   calculateProductionPercentage,
   calculateFeedPerBirdGrams,
   calculateWaterPerBirdMl,
+  calculateBirdAge,
 } from '../../lib/calculations.js';
 import {
   Calendar,
@@ -177,13 +179,49 @@ export const DailyRecordPage: React.FC = () => {
     }
   };
 
-  // Live calculation estimates
-  const estRemainingBirds = (flock?.initialBirds || 0) - (Number(mortality) || 0);
+  // Live calculation estimates with Moat (collective died birds from flock start till today)
+  const recordedMoat = recordData?.birds?.moat ?? 0;
+  const recordedTodayMortality = recordData?.birds?.mortality ?? 0;
+  const priorMoat = Math.max(0, recordedMoat - recordedTodayMortality);
+  const currentMoat = priorMoat + (Number(mortality) || 0);
+  const currentMoatPercentage = (flock?.initialBirds && flock.initialBirds > 0)
+    ? Number(((currentMoat / flock.initialBirds) * 100).toFixed(3))
+    : 0;
+  const estRemainingBirds = Math.max(0, (flock?.initialBirds || 0) - currentMoat);
   const estFeedKg = (Number(feedUsedBags) || 0) * 50;
   const estFeedPerBirdGrams = calculateFeedPerBirdGrams(Number(feedUsedBags) || 0, estRemainingBirds);
   const estProdEggs = petiTraysToEggs(Number(prodPeti) || 0, Number(prodTrays) || 0);
   const estProdPercentage = calculateProductionPercentage(estProdEggs, estRemainingBirds);
   const estWaterPerBirdMl = calculateWaterPerBirdMl(Number(waterLiters) || 0, estRemainingBirds);
+  // Prior Balances from API
+  const priorBalances = recordData?.priorBalances;
+
+  // Feed Calculations (Requirements 1.1 - 1.5)
+  const previousFeedStockBags = priorBalances?.previousFeedStockBags ?? 0;
+  const recordedTodayArrivalBags = recordData?.feed?.arrivalBags ?? 0;
+  const baseArrivalBags = Math.max(0, (priorBalances?.totalArrivalBagsTillNow ?? 0) - recordedTodayArrivalBags);
+  const currentTotalArrivalBagsTillNow = baseArrivalBags + (Number(feedArrivalBags) || 0);
+  const currentRemainingFeedBags = Math.max(0, previousFeedStockBags + (Number(feedArrivalBags) || 0) - (Number(feedUsedBags) || 0));
+
+  // Egg Calculations (Requirements 2.1 - 2.5)
+  const previousEggStock = priorBalances?.previousEggStock ?? { peti: 0, trays: 0, looseEggs: 0, formatted: '0 Peti, 0 Trays' };
+  const previousEggStockEggs = petiTraysToEggs(previousEggStock.peti, previousEggStock.trays) + (previousEggStock.looseEggs || 0);
+  const estSoldEggs = petiTraysToEggs(Number(soldPeti) || 0, Number(soldTrays) || 0);
+  const estUsageEggs = eggUsage.reduce((sum, u) => sum + petiTraysToEggs(Number(u.peti) || 0, Number(u.trays) || 0), 0);
+  const estRemainingEggStockEggs = Math.max(0, previousEggStockEggs + estProdEggs - estSoldEggs - estUsageEggs);
+  const estRemainingEggStockBreakdown = eggsToPetiTrays(estRemainingEggStockEggs);
+
+  // Diesel Calculations (Requirements 5.1 - 5.3)
+  const previousDieselStockLiters = priorBalances?.previousDieselStockLiters ?? 0;
+  const currentRemainingDieselLiters = Math.max(
+    0,
+    previousDieselStockLiters + (Number(dieselArrival) || 0) - (Number(dieselUsed) || 0)
+  );
+
+  // Bird Age Calculations (Requirements 6.1 - 6.2)
+  const currentBirdAge = flock ? calculateBirdAge(date, flock.startDate) : { week: 1, day: 0, totalDays: 0, formatted: 'W01-D00' };
+  const dayNames = ['Sunday (00)', 'Monday (01)', 'Tuesday (02)', 'Wednesday (03)', 'Thursday (04)', 'Friday (05)', 'Saturday (06)'];
+  const dayNameFormatted = dayNames[currentBirdAge.day] || `Day ${currentBirdAge.day}`;
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
@@ -380,22 +418,38 @@ export const DailyRecordPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Live Calculation Callout */}
-                <div className="bg-zinc-100 border border-black p-4 grid grid-cols-2 md:grid-cols-3 gap-4 text-xs font-mono">
+                {/* Live Calculation Callout with Moat & Moat % */}
+                <div className="bg-zinc-100 border border-black p-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-xs font-mono">
                   <div>
                     <span className="text-zinc-500 block text-[10px] uppercase">Initial Birds</span>
                     <span className="font-bold text-sm">{flock?.initialBirds.toLocaleString()}</span>
                   </div>
                   <div>
-                    <span className="text-zinc-500 block text-[10px] uppercase">Est. Birds Today</span>
+                    <span className="text-zinc-500 block text-[10px] uppercase">Est. Living Birds Today</span>
                     <span className="font-bold text-sm text-black font-tabular">
                       {estRemainingBirds.toLocaleString()}
                     </span>
                   </div>
-                  <div>
-                    <span className="text-zinc-500 block text-[10px] uppercase">Today Mortality %</span>
-                    <span className="font-bold text-sm">
-                      {(((mortality || 0) / (flock?.initialBirds || 1)) * 100).toFixed(3)}%
+                  <div className="bg-white border border-black p-2.5 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                    <span className="text-black block text-[10px] uppercase font-bold">
+                      Moat (Collective Dead)
+                    </span>
+                    <span className="font-bold text-base text-black font-tabular block">
+                      {currentMoat.toLocaleString()}
+                    </span>
+                    <span className="text-[10px] text-zinc-500 block">
+                      Today: {Number(mortality || 0).toLocaleString()} • Prior: {priorMoat.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="bg-black text-white border border-black p-2.5 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                    <span className="text-zinc-400 block text-[10px] uppercase font-bold">
+                      Moat % (Moat Percentage)
+                    </span>
+                    <span className="font-bold text-base text-white font-tabular block">
+                      {currentMoatPercentage.toFixed(3)}%
+                    </span>
+                    <span className="text-[10px] text-zinc-400 block">
+                      Collective died % of flock
                     </span>
                   </div>
                 </div>
@@ -450,16 +504,35 @@ export const DailyRecordPage: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="bg-zinc-100 border border-black p-4 grid grid-cols-2 gap-4 text-xs font-mono">
+                {/* Live Feed Stock & Balance Callout (Requirements 1.1 - 1.5) */}
+                <div className="bg-zinc-100 border border-black p-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-xs font-mono">
                   <div>
-                    <span className="text-zinc-500 block text-[10px] uppercase">Net Daily Inventory Delta</span>
-                    <span className="font-bold text-sm">
-                      {feedArrivalBags - feedUsedBags >= 0 ? `+${feedArrivalBags - feedUsedBags}` : feedArrivalBags - feedUsedBags} Bags
-                    </span>
+                    <span className="text-zinc-500 block text-[10px] uppercase">Prev. Day Stock</span>
+                    <span className="font-bold text-sm">{previousFeedStockBags.toLocaleString()} Bags</span>
+                    <span className="text-[10px] text-zinc-500 block">{(previousFeedStockBags * 50).toLocaleString()} kg</span>
                   </div>
                   <div>
-                    <span className="text-zinc-500 block text-[10px] uppercase">Derived Intake / Bird</span>
-                    <span className="font-bold text-sm">{estFeedPerBirdGrams} g/bird</span>
+                    <span className="text-zinc-500 block text-[10px] uppercase">Total Received Till Now</span>
+                    <span className="font-bold text-sm text-black">{currentTotalArrivalBagsTillNow.toLocaleString()} Bags</span>
+                    <span className="text-[10px] text-zinc-500 block">{(currentTotalArrivalBagsTillNow * 50).toLocaleString()} kg</span>
+                  </div>
+                  <div className="bg-white border border-black p-2.5 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                    <span className="text-black block text-[10px] uppercase font-bold">Remaining Bags (Auto)</span>
+                    <span className="font-bold text-base text-black font-tabular block">
+                      {currentRemainingFeedBags.toLocaleString()} Bags
+                    </span>
+                    <span className="text-[10px] text-zinc-500 block">
+                      {(currentRemainingFeedBags * 50).toLocaleString()} kg in stock
+                    </span>
+                  </div>
+                  <div className="bg-black text-white border border-black p-2.5 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                    <span className="text-zinc-400 block text-[10px] uppercase font-bold">Feed Intake / Bird</span>
+                    <span className="font-bold text-base text-white font-tabular block">
+                      {estFeedPerBirdGrams} g/bird
+                    </span>
+                    <span className="text-[10px] text-zinc-400 block">
+                      Based on living birds
+                    </span>
                   </div>
                 </div>
               </div>
@@ -468,13 +541,20 @@ export const DailyRecordPage: React.FC = () => {
             {/* Tab 3: Eggs */}
             {activeTab === 'eggs' && flock?.eggTrackingEnabled && (
               <div className="space-y-6">
-                <div className="border-b border-zinc-200 pb-3">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-black">
-                    Egg Production & Sales
-                  </h3>
-                  <p className="text-[11px] font-mono text-zinc-500">
-                    1 Peti = 12 Trays = 360 Eggs. 1 Tray = 30 Eggs.
-                  </p>
+                <div className="border-b border-zinc-200 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-black">
+                      Egg Production, Sales & Stock
+                    </h3>
+                    <p className="text-[11px] font-mono text-zinc-500">
+                      1 Peti = 12 Trays = 360 Eggs • 1 Tray = 30 Eggs
+                    </p>
+                  </div>
+                  <div className="border border-black bg-zinc-100 px-3 py-1.5 text-xs font-mono">
+                    <span className="text-[10px] text-zinc-500 uppercase block">Prev. Day Remaining Stock (Auto)</span>
+                    <span className="font-bold text-black">{previousEggStock.formatted}</span>
+                    <span className="text-[10px] text-zinc-500 ml-1">({previousEggStockEggs.toLocaleString()} eggs)</span>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -649,6 +729,42 @@ export const DailyRecordPage: React.FC = () => {
                     </div>
                   )}
                 </div>
+
+                {/* Live Egg Stock & Production % Callout (Requirements 2.1 - 2.5) */}
+                <div className="bg-zinc-100 border border-black p-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-xs font-mono">
+                  <div>
+                    <span className="text-zinc-500 block text-[10px] uppercase">Opening Stock</span>
+                    <span className="font-bold text-sm">{previousEggStock.peti}P, {previousEggStock.trays}T</span>
+                    <span className="text-[10px] text-zinc-500 block">{previousEggStockEggs.toLocaleString()} eggs</span>
+                  </div>
+                  <div>
+                    <span className="text-zinc-500 block text-[10px] uppercase">Today Net Movement</span>
+                    <span className="font-bold text-sm text-black">
+                      +{estProdEggs.toLocaleString()} / -{(estSoldEggs + estUsageEggs).toLocaleString()}
+                    </span>
+                    <span className="text-[10px] text-zinc-500 block">
+                      Prod: {Number(prodPeti) || 0}P, {Number(prodTrays) || 0}T • Sold: {Number(soldPeti) || 0}P, {Number(soldTrays) || 0}T
+                    </span>
+                  </div>
+                  <div className="bg-white border border-black p-2.5 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                    <span className="text-black block text-[10px] uppercase font-bold">Total Remaining Stock (Auto)</span>
+                    <span className="font-bold text-base text-black font-tabular block">
+                      {estRemainingEggStockBreakdown.formatted}
+                    </span>
+                    <span className="text-[10px] text-zinc-500 block">
+                      {estRemainingEggStockEggs.toLocaleString()} total eggs in stock
+                    </span>
+                  </div>
+                  <div className="bg-black text-white border border-black p-2.5 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                    <span className="text-zinc-400 block text-[10px] uppercase font-bold">Production % (Auto)</span>
+                    <span className="font-bold text-base text-white font-tabular block">
+                      {estProdPercentage}%
+                    </span>
+                    <span className="text-[10px] text-zinc-400 block">
+                      {estProdEggs.toLocaleString()} eggs / {estRemainingBirds.toLocaleString()} birds
+                    </span>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -695,6 +811,34 @@ export const DailyRecordPage: React.FC = () => {
                     />
                   </div>
                 </div>
+
+                {/* Live Diesel Fuel Stock Callout (Requirements 5.1 - 5.3) */}
+                <div className="bg-zinc-100 border border-black p-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-xs font-mono">
+                  <div>
+                    <span className="text-zinc-500 block text-[10px] uppercase">Prev. Remaining Fuel</span>
+                    <span className="font-bold text-sm">{previousDieselStockLiters.toFixed(1)} L</span>
+                    <span className="text-[10px] text-zinc-500 block">Balance prior to today</span>
+                  </div>
+                  <div>
+                    <span className="text-zinc-500 block text-[10px] uppercase">Today Delivery</span>
+                    <span className="font-bold text-sm text-black">+{Number(dieselArrival) || 0} L</span>
+                    <span className="text-[10px] text-zinc-500 block">Added to reserve</span>
+                  </div>
+                  <div>
+                    <span className="text-zinc-500 block text-[10px] uppercase">Today Burned</span>
+                    <span className="font-bold text-sm text-black">-{Number(dieselUsed) || 0} L</span>
+                    <span className="text-[10px] text-zinc-500 block">Subtracted from reserve</span>
+                  </div>
+                  <div className="bg-black text-white border border-black p-2.5 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                    <span className="text-zinc-400 block text-[10px] uppercase font-bold">Remaining Diesel (Auto)</span>
+                    <span className="font-bold text-base text-white font-tabular block">
+                      {currentRemainingDieselLiters.toFixed(1)} Liters
+                    </span>
+                    <span className="text-[10px] text-zinc-400 block">
+                      Net operations reserve
+                    </span>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -703,11 +847,45 @@ export const DailyRecordPage: React.FC = () => {
               <div className="space-y-6">
                 <div className="border-b border-zinc-200 pb-3">
                   <h3 className="text-xs font-bold uppercase tracking-wider text-black">
-                    Flock Bird Weight & Uniformity
+                    Flock Bird Weight, Uniformity & Age
                   </h3>
                   <p className="text-[11px] font-mono text-zinc-500">
-                    Sample weigh-in data for growth monitoring. Leave blank if weighing was not conducted today.
+                    Week and day are auto-calculated from flock placement reference date.
                   </p>
+                </div>
+
+                {/* Auto-Calculated Flock Age Banner (Requirements 6.1 - 6.2) */}
+                <div className="bg-zinc-100 border border-black p-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-xs font-mono">
+                  <div>
+                    <span className="text-zinc-500 block text-[10px] uppercase">Week No (Auto)</span>
+                    <span className="font-bold text-base text-black font-tabular block">
+                      Week {currentBirdAge.week < 10 ? `0${currentBirdAge.week}` : currentBirdAge.week}
+                    </span>
+                    <span className="text-[10px] text-zinc-500 block">Calculated from start date</span>
+                  </div>
+                  <div>
+                    <span className="text-zinc-500 block text-[10px] uppercase">Day No (Auto)</span>
+                    <span className="font-bold text-base text-black font-tabular block">
+                      Day {currentBirdAge.day < 10 ? `0${currentBirdAge.day}` : currentBirdAge.day}
+                    </span>
+                    <span className="text-[10px] text-zinc-500 block">{dayNameFormatted}</span>
+                  </div>
+                  <div>
+                    <span className="text-zinc-500 block text-[10px] uppercase">Total Life Duration</span>
+                    <span className="font-bold text-sm text-black block">
+                      {currentBirdAge.totalDays} Days
+                    </span>
+                    <span className="text-[10px] text-zinc-500 block">Started {flock?.startDate}</span>
+                  </div>
+                  <div className="bg-white border border-black p-2.5 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                    <span className="text-black block text-[10px] uppercase font-bold">Standard Age Tag</span>
+                    <span className="font-bold text-base text-black font-tabular block">
+                      {currentBirdAge.formatted}
+                    </span>
+                    <span className="text-[10px] text-zinc-500 block">
+                      Sunday = 00 convention
+                    </span>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

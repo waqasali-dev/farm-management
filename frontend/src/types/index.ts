@@ -35,8 +35,10 @@ export interface DashboardData {
     initial: number;
     todayMortality: number;
     cumulativeMortality: number;
+    moat?: number;
     remaining: number;
     mortalityRate: number;
+    moatPercentage?: number;
   };
   feed: {
     totalReceivedBags: number;
@@ -93,6 +95,8 @@ export interface UnifiedDailyRecord {
   eggTrackingEnabled: boolean;
   birds: {
     mortality: number;
+    moat?: number;
+    moatPercentage?: number;
     lightHours?: number | null;
     maxTemperature?: number | null;
     minTemperature?: number | null;
@@ -134,6 +138,18 @@ export interface UnifiedDailyRecord {
     vaccineName: string;
     notes?: string;
   } | null;
+  priorBalances?: {
+    previousFeedStockBags: number;
+    totalArrivalBagsTillNow: number;
+    previousEggStock: {
+      peti: number;
+      trays: number;
+      looseEggs: number;
+      formatted: string;
+    };
+    previousDieselStockLiters: number;
+    birdAge: BirdAge;
+  };
 }
 
 export interface HealthStatus {

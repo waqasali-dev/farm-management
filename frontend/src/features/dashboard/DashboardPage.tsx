@@ -185,14 +185,18 @@ export const DashboardPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="mt-4 pt-3 border-t border-zinc-200 grid grid-cols-2 gap-2 text-xs font-mono">
+          <div className="mt-4 pt-3 border-t border-zinc-200 grid grid-cols-3 gap-2 text-xs font-mono">
             <div>
-              <span className="text-zinc-500 block text-[10px] uppercase">Today Mortality</span>
+              <span className="text-zinc-500 block text-[10px] uppercase">Today Mort.</span>
               <span className="font-bold">{data?.birds.todayMortality ?? 0}</span>
             </div>
             <div>
-              <span className="text-zinc-500 block text-[10px] uppercase">Cumulative Mort. %</span>
-              <span className="font-bold">{data?.birds.mortalityRate ?? 0}%</span>
+              <span className="text-zinc-500 block text-[10px] uppercase">Moat (Cumul.)</span>
+              <span className="font-bold text-black">{data?.birds.moat ?? data?.birds.cumulativeMortality ?? 0}</span>
+            </div>
+            <div>
+              <span className="text-zinc-500 block text-[10px] uppercase">Moat %</span>
+              <span className="font-bold text-black">{data?.birds.moatPercentage ?? data?.birds.mortalityRate ?? 0}%</span>
             </div>
           </div>
         </div>
@@ -214,7 +218,11 @@ export const DashboardPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="mt-4 pt-3 border-t border-zinc-200 grid grid-cols-2 gap-2 text-xs font-mono">
+          <div className="mt-4 pt-3 border-t border-zinc-200 grid grid-cols-3 gap-2 text-xs font-mono">
+            <div>
+              <span className="text-zinc-500 block text-[10px] uppercase">Total Recv.</span>
+              <span className="font-bold">{data?.feed.totalReceivedBags ?? 0} bags</span>
+            </div>
             <div>
               <span className="text-zinc-500 block text-[10px] uppercase">Today Used</span>
               <span className="font-bold">{data?.feed.todayUsedBags ?? 0} bags</span>
@@ -244,15 +252,21 @@ export const DashboardPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="mt-4 pt-3 border-t border-zinc-200 grid grid-cols-2 gap-2 text-xs font-mono">
+            <div className="mt-4 pt-3 border-t border-zinc-200 grid grid-cols-3 gap-2 text-xs font-mono">
               <div>
-                <span className="text-zinc-500 block text-[10px] uppercase">Today Production</span>
+                <span className="text-zinc-500 block text-[10px] uppercase">Today Prod</span>
                 <span className="font-bold">
                   {data?.eggs?.todayProductionPeti ?? 0}P, {data?.eggs?.todayProductionTrays ?? 0}T
                 </span>
               </div>
               <div>
-                <span className="text-zinc-500 block text-[10px] uppercase">Production %</span>
+                <span className="text-zinc-500 block text-[10px] uppercase">Today Sold</span>
+                <span className="font-bold">
+                  {data?.eggs?.todaySoldPeti ?? 0}P, {data?.eggs?.todaySoldTrays ?? 0}T
+                </span>
+              </div>
+              <div>
+                <span className="text-zinc-500 block text-[10px] uppercase">Prod %</span>
                 <span className="font-bold">{data?.eggs?.productionPercentage ?? 0}%</span>
               </div>
             </div>

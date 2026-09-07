@@ -41,7 +41,7 @@ export const AppLayout: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-white flex flex-col font-sans text-black">
+    <div className="h-screen w-screen bg-white flex flex-col font-sans text-black overflow-hidden">
       <Header
         flocks={flocks}
         activeFlock={activeFlock}
@@ -50,10 +50,10 @@ export const AppLayout: React.FC = () => {
         onOpenCreateModal={() => setIsCreateModalOpen(true)}
       />
 
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden min-h-0">
         <Sidebar activeFlock={activeFlock} />
 
-        <main className="flex-1 overflow-y-auto p-6 md:p-8 bg-zinc-50">
+        <main className="flex-1 overflow-y-auto p-6 md:p-8 bg-zinc-50 min-h-0">
           <Outlet context={{ activeFlock, flocks, refreshFlocks: refetchFlocks, health }} />
         </main>
       </div>

@@ -13,7 +13,9 @@ interface OutletContextType {
 
 export const ReportsPage: React.FC = () => {
   const { activeFlock } = useOutletContext<OutletContextType>();
-  const [reportType, setReportType] = useState<'summary' | 'mortality' | 'feed' | 'eggs'>('summary');
+  const [reportType, setReportType] = useState<
+    'summary' | 'mortality' | 'feed' | 'eggs' | 'diesel' | 'weight' | 'health'
+  >('summary');
 
   // TanStack Query for Reports (Section 30, 31)
   const {
@@ -55,12 +57,15 @@ export const ReportsPage: React.FC = () => {
 
         <div className="flex items-center gap-3 flex-wrap">
           {/* Report Type Selector */}
-          <div className="border border-black p-0.5 flex bg-zinc-100 text-xs font-mono">
+          <div className="border border-black p-0.5 flex flex-wrap bg-zinc-100 text-xs font-mono">
             {[
               { id: 'summary', label: 'Summary' },
               { id: 'mortality', label: 'Mortality' },
               { id: 'feed', label: 'Feed' },
               ...(activeFlock.eggTrackingEnabled ? [{ id: 'eggs', label: 'Eggs' }] : []),
+              { id: 'diesel', label: 'Diesel' },
+              { id: 'weight', label: 'Weight & Age' },
+              { id: 'health', label: 'Health & Vaccines' },
             ].map((t) => (
               <button
                 key={t.id}
@@ -113,10 +118,10 @@ export const ReportsPage: React.FC = () => {
                     <tr className="border-b border-black bg-zinc-100 text-[10px] uppercase text-zinc-600">
                       <th className="py-2.5 px-3">Date</th>
                       <th className="py-2.5 px-3">Age</th>
-                      <th className="py-2.5 px-3">Mortality</th>
-                      <th className="py-2.5 px-3">Cumul. Mort.</th>
+                      <th className="py-2.5 px-3">Today Mort.</th>
+                      <th className="py-2.5 px-3">Moat (Cumul.)</th>
                       <th className="py-2.5 px-3">Remaining Birds</th>
-                      <th className="py-2.5 px-3">Mort. %</th>
+                      <th className="py-2.5 px-3">Moat %</th>
                       <th className="py-2.5 px-3">Feed (Bags)</th>
                       <th className="py-2.5 px-3">Feed (g/bird)</th>
                       {activeFlock.eggTrackingEnabled && <th className="py-2.5 px-3">Eggs (Total)</th>}
@@ -131,11 +136,11 @@ export const ReportsPage: React.FC = () => {
                           <td className="py-2 px-3 font-bold">{row.date}</td>
                           <td className="py-2 px-3">{row.age}</td>
                           <td className="py-2 px-3">{row.mortality}</td>
-                          <td className="py-2 px-3">{row.cumulativeMortality}</td>
+                          <td className="py-2 px-3 font-semibold">{row.moat ?? row.cumulativeMortality}</td>
                           <td className="py-2 px-3 font-tabular font-semibold">
                             {row.remainingBirds.toLocaleString()}
                           </td>
-                          <td className="py-2 px-3">{row.mortalityRate}%</td>
+                          <td className="py-2 px-3 font-semibold">{row.moatPercentage ?? row.mortalityRate}%</td>
                           <td className="py-2 px-3">{row.feedUsedBags}</td>
                           <td className="py-2 px-3">{row.feedConsumptionGrams}</td>
                           {activeFlock.eggTrackingEnabled && (
@@ -164,9 +169,9 @@ export const ReportsPage: React.FC = () => {
                     <tr className="border-b border-black bg-zinc-100 text-[10px] uppercase text-zinc-600">
                       <th className="py-2.5 px-3">Date</th>
                       <th className="py-2.5 px-3">Daily Mortality</th>
-                      <th className="py-2.5 px-3">Cumulative Mortality</th>
+                      <th className="py-2.5 px-3">Moat (Cumulative Dead)</th>
                       <th className="py-2.5 px-3">Remaining Living Birds</th>
-                      <th className="py-2.5 px-3">Cumulative Mortality %</th>
+                      <th className="py-2.5 px-3">Moat % (Total Mortality)</th>
                       <th className="py-2.5 px-3">Light Hours</th>
                       <th className="py-2.5 px-3">Max Temp (°C)</th>
                       <th className="py-2.5 px-3">Min Temp (°C)</th>
@@ -178,11 +183,11 @@ export const ReportsPage: React.FC = () => {
                         <tr key={i} className="hover:bg-zinc-50">
                           <td className="py-2 px-3 font-bold">{row.date}</td>
                           <td className="py-2 px-3">{row.mortality}</td>
-                          <td className="py-2 px-3">{row.cumulativeMortality}</td>
+                          <td className="py-2 px-3 font-semibold">{row.moat ?? row.cumulativeMortality}</td>
                           <td className="py-2 px-3 font-tabular font-semibold">
                             {row.remainingBirds.toLocaleString()}
                           </td>
-                          <td className="py-2 px-3">{row.mortalityRate}%</td>
+                          <td className="py-2 px-3 font-semibold">{row.moatPercentage ?? row.mortalityRate}%</td>
                           <td className="py-2 px-3">{row.lightHours ?? '---'}</td>
                           <td className="py-2 px-3">{row.maxTemp ?? '---'}</td>
                           <td className="py-2 px-3">{row.minTemp ?? '---'}</td>
@@ -241,13 +246,17 @@ export const ReportsPage: React.FC = () => {
                   <thead>
                     <tr className="border-b border-black bg-zinc-100 text-[10px] uppercase text-zinc-600">
                       <th className="py-2.5 px-3">Date</th>
-                      <th className="py-2.5 px-3">Production (Peti/Trays)</th>
-                      <th className="py-2.5 px-3">Production (Eggs)</th>
-                      <th className="py-2.5 px-3">Sold (Peti/Trays)</th>
+                      <th className="py-2.5 px-3">Opening Stock</th>
+                      <th className="py-2.5 px-3">Production (P/T)</th>
+                      <th className="py-2.5 px-3">Prod (Eggs)</th>
+                      <th className="py-2.5 px-3">Sold (P/T)</th>
                       <th className="py-2.5 px-3">Sold (Eggs)</th>
-                      <th className="py-2.5 px-3">Usage / Waste (Eggs)</th>
-                      <th className="py-2.5 px-3">Closing Stock (Eggs)</th>
-                      <th className="py-2.5 px-3">Closing Stock (Formatted)</th>
+                      <th className="py-2.5 px-3">Gift Use</th>
+                      <th className="py-2.5 px-3">Conveyor Waste</th>
+                      <th className="py-2.5 px-3">Mess Use</th>
+                      <th className="py-2.5 px-3">Store Waste</th>
+                      <th className="py-2.5 px-3">Total Waste (Eggs)</th>
+                      <th className="py-2.5 px-3">Closing Stock (P/T)</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-200">
@@ -255,19 +264,130 @@ export const ReportsPage: React.FC = () => {
                       data.rows.map((row: any, i: number) => (
                         <tr key={i} className="hover:bg-zinc-50">
                           <td className="py-2 px-3 font-bold">{row.date}</td>
+                          <td className="py-2 px-3">{row.openingStockFormatted}</td>
                           <td className="py-2 px-3">{row.productionPeti}P, {row.productionTrays}T</td>
                           <td className="py-2 px-3 font-tabular">{row.productionEggs.toLocaleString()}</td>
                           <td className="py-2 px-3">{row.soldPeti}P, {row.soldTrays}T</td>
                           <td className="py-2 px-3 font-tabular">{row.soldEggs.toLocaleString()}</td>
+                          <td className="py-2 px-3 text-zinc-600">{row.giftUse}</td>
+                          <td className="py-2 px-3 text-zinc-600">{row.conveyorWaste}</td>
+                          <td className="py-2 px-3 text-zinc-600">{row.messUse}</td>
+                          <td className="py-2 px-3 text-zinc-600">{row.storeWaste}</td>
                           <td className="py-2 px-3 font-tabular">{row.usageEggs.toLocaleString()}</td>
-                          <td className="py-2 px-3 font-tabular font-bold">{row.closingStockEggs.toLocaleString()}</td>
                           <td className="py-2 px-3 font-semibold">{row.closingStockFormatted}</td>
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={8} className="py-8 text-center text-zinc-400">
+                        <td colSpan={12} className="py-8 text-center text-zinc-400">
                           No egg records found or egg tracking disabled.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              )}
+
+              {reportType === 'diesel' && (
+                <table className="w-full text-left border-collapse text-xs font-mono">
+                  <thead>
+                    <tr className="border-b border-black bg-zinc-100 text-[10px] uppercase text-zinc-600">
+                      <th className="py-2.5 px-3">Date</th>
+                      <th className="py-2.5 px-3">Arrival (Liters)</th>
+                      <th className="py-2.5 px-3">Used (Liters)</th>
+                      <th className="py-2.5 px-3">Closing Stock Balance (Liters)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-200">
+                    {data?.rows && data.rows.length > 0 ? (
+                      data.rows.map((row: any, i: number) => (
+                        <tr key={i} className="hover:bg-zinc-50">
+                          <td className="py-2 px-3 font-bold">{row.date}</td>
+                          <td className="py-2 px-3 font-tabular">{row.arrivalLiters.toFixed(1)} L</td>
+                          <td className="py-2 px-3 font-tabular">{row.usedLiters.toFixed(1)} L</td>
+                          <td className="py-2 px-3 font-bold font-tabular">{row.stockLiters.toFixed(1)} L</td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={4} className="py-8 text-center text-zinc-400">
+                          No diesel fuel records found.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              )}
+
+              {reportType === 'weight' && (
+                <table className="w-full text-left border-collapse text-xs font-mono">
+                  <thead>
+                    <tr className="border-b border-black bg-zinc-100 text-[10px] uppercase text-zinc-600">
+                      <th className="py-2.5 px-3">Date</th>
+                      <th className="py-2.5 px-3">Flock Age Tag</th>
+                      <th className="py-2.5 px-3">Week No (Auto)</th>
+                      <th className="py-2.5 px-3">Day No (Auto)</th>
+                      <th className="py-2.5 px-3">Sample Weight (Grams)</th>
+                      <th className="py-2.5 px-3">Uniformity (%)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-200">
+                    {data?.rows && data.rows.length > 0 ? (
+                      data.rows.map((row: any, i: number) => (
+                        <tr key={i} className="hover:bg-zinc-50">
+                          <td className="py-2 px-3 font-bold">{row.date}</td>
+                          <td className="py-2 px-3 font-semibold">{row.age}</td>
+                          <td className="py-2 px-3">Week {row.week < 10 ? `0${row.week}` : row.week}</td>
+                          <td className="py-2 px-3">Day {row.day < 10 ? `0${row.day}` : row.day}</td>
+                          <td className="py-2 px-3 font-tabular font-bold">{row.weight} g</td>
+                          <td className="py-2 px-3 font-tabular font-semibold">{row.uniformity}%</td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={6} className="py-8 text-center text-zinc-400">
+                          No weight or growth records conducted yet.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              )}
+
+              {reportType === 'health' && (
+                <table className="w-full text-left border-collapse text-xs font-mono">
+                  <thead>
+                    <tr className="border-b border-black bg-zinc-100 text-[10px] uppercase text-zinc-600">
+                      <th className="py-2.5 px-3">Date</th>
+                      <th className="py-2.5 px-3">Intake Type</th>
+                      <th className="py-2.5 px-3">Water Volume (L)</th>
+                      <th className="py-2.5 px-3">Water Intake / Bird</th>
+                      <th className="py-2.5 px-3">Prescribed Medicines & Dosages</th>
+                      <th className="py-2.5 px-3">Vaccine Administered</th>
+                      <th className="py-2.5 px-3">Vaccine Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-200">
+                    {data?.rows && data.rows.length > 0 ? (
+                      data.rows.map((row: any, i: number) => (
+                        <tr key={i} className="hover:bg-zinc-50">
+                          <td className="py-2 px-3 font-bold">{row.date}</td>
+                          <td className="py-2 px-3">
+                            <span className={`px-2 py-0.5 border ${row.type === 'medicine' ? 'bg-black text-white border-black font-bold' : 'border-zinc-300'}`}>
+                              {row.type.toUpperCase()}
+                            </span>
+                          </td>
+                          <td className="py-2 px-3 font-tabular">{row.waterLiters.toLocaleString()} L</td>
+                          <td className="py-2 px-3 font-tabular">{row.waterPerBirdMl} ml/bird</td>
+                          <td className="py-2 px-3">{row.medicines}</td>
+                          <td className="py-2 px-3 font-semibold">{row.vaccineName}</td>
+                          <td className="py-2 px-3 text-zinc-500">{row.vaccineNotes}</td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={7} className="py-8 text-center text-zinc-400">
+                          No health, medicine, or vaccination logs found.
                         </td>
                       </tr>
                     )}

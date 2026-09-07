@@ -57,12 +57,13 @@ export function calculateBirdAge(targetDateStr: string, startDateStr: string): {
   const diffTime = target.getTime() - start.getTime();
   const totalDays = Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
   const day = target.getDay(); // 0 = Sunday (Day 00)
-  const week = Math.floor(totalDays / 7);
+  const week = Math.floor(totalDays / 7) + 1; // 1-indexed: Day 0-6 = Week 1, Day 14-20 = Week 3
+  const formattedWeek = week < 10 ? `0${week}` : `${week}`;
   const formattedDay = day < 10 ? `0${day}` : `${day}`;
   return {
     week,
     day,
     totalDays,
-    formatted: `W${week}-D${formattedDay}`,
+    formatted: `W${formattedWeek}-D${formattedDay}`,
   };
 }

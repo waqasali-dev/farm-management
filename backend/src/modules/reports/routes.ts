@@ -11,6 +11,7 @@ import {
   eggsToPetiTrays,
   calculateProductionPercentage,
   calculateBirdAge,
+  calculateWaterPerBirdMl,
 } from '../../calculations/index.js';
 
 export const reportRoutes: FastifyPluginAsync = async (fastify) => {
@@ -66,8 +67,10 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
             age: age.formatted,
             mortality: b.mortality,
             cumulativeMortality,
+            moat: b.moat ?? cumulativeMortality,
             remainingBirds,
             mortalityRate,
+            moatPercentage: b.moatPercentage ? parseFloat(b.moatPercentage) : mortalityRate,
             feedUsedBags: feed ? feed.usedBags : 0,
             feedConsumptionGrams: feed ? calculateFeedConsumptionGramsPerBird(feed.usedBags, remainingBirds) : 0,
             eggProductionEggs: eggEggs,
@@ -167,8 +170,10 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
             date: r.date,
             mortality: r.mortality,
             cumulativeMortality: runningMortality,
+            moat: r.moat ?? runningMortality,
             remainingBirds: calculateRemainingBirds(flock.initialBirds, runningMortality),
             mortalityRate: calculateMortalityPercentage(runningMortality, flock.initialBirds),
+            moatPercentage: r.moatPercentage ? parseFloat(r.moatPercentage) : calculateMortalityPercentage(runningMortality, flock.initialBirds),
             lightHours: r.lightHours ? parseFloat(r.lightHours) : null,
             maxTemp: r.maxTemperature ? parseFloat(r.maxTemperature) : null,
             minTemp: r.minTemperature ? parseFloat(r.minTemperature) : null,
@@ -284,25 +289,40 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
 
         let cumulativeEggs = 0;
         const rows = records.map((r) => {
+          const openingStockEggs = Math.max(0, cumulativeEggs);
+          const openingStockFormatted = eggsToPetiTrays(openingStockEggs).formatted;
+
           const prodEggs = petiTraysToEggs(r.productionPeti, r.productionTrays);
           const soldEggs = petiTraysToEggs(r.soldPeti, r.soldTrays);
-          const usageForDate = usageRecords
-            .filter((u) => u.date === r.date)
-            .reduce((sum, u) => sum + petiTraysToEggs(u.peti, u.trays), 0);
+
+          const dateUsages = usageRecords.filter((u) => u.date === r.date);
+          const usageForDate = dateUsages.reduce((sum, u) => sum + petiTraysToEggs(u.peti, u.trays), 0);
+
+          const giftUsage = dateUsages.find((u) => u.type === 'gift-use');
+          const conveyorUsage = dateUsages.find((u) => u.type === 'conveyor-waste');
+          const messUsage = dateUsages.find((u) => u.type === 'mess-use');
+          const storeUsage = dateUsages.find((u) => u.type === 'store-waste');
 
           cumulativeEggs += prodEggs - soldEggs - usageForDate;
-          const stockDisplay = eggsToPetiTrays(Math.max(0, cumulativeEggs));
+          const closingStockEggs = Math.max(0, cumulativeEggs);
+          const stockDisplay = eggsToPetiTrays(closingStockEggs);
 
           return {
             date: r.date,
+            openingStockEggs,
+            openingStockFormatted,
             productionPeti: r.productionPeti,
             productionTrays: r.productionTrays,
             productionEggs: prodEggs,
             soldPeti: r.soldPeti,
             soldTrays: r.soldTrays,
             soldEggs,
+            giftUse: giftUsage ? `${giftUsage.peti}P, ${giftUsage.trays}T` : '---',
+            conveyorWaste: conveyorUsage ? `${conveyorUsage.peti}P, ${conveyorUsage.trays}T` : '---',
+            messUse: messUsage ? `${messUsage.peti}P, ${messUsage.trays}T` : '---',
+            storeWaste: storeUsage ? `${storeUsage.peti}P, ${storeUsage.trays}T` : '---',
             usageEggs: usageForDate,
-            closingStockEggs: Math.max(0, cumulativeEggs),
+            closingStockEggs,
             closingStockFormatted: stockDisplay.formatted,
           };
         });
@@ -324,29 +344,234 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
 
     let cumulativeEggs = 0;
     const rows = records.map((r) => {
+      const openingStockEggs = Math.max(0, cumulativeEggs);
+      const openingStockFormatted = eggsToPetiTrays(openingStockEggs).formatted;
+
       const prodEggs = petiTraysToEggs(r.productionPeti, r.productionTrays);
       const soldEggs = petiTraysToEggs(r.soldPeti, r.soldTrays);
-      const usageForDate = mockStore.eggUsageRecords
-        .filter((u) => u.flockId === flockId && u.date === r.date)
-        .reduce((sum, u) => sum + petiTraysToEggs(u.peti, u.trays), 0);
+      const dateUsages = mockStore.eggUsageRecords.filter((u) => u.flockId === flockId && u.date === r.date);
+      const usageForDate = dateUsages.reduce((sum, u) => sum + petiTraysToEggs(u.peti, u.trays), 0);
+
+      const giftUsage = dateUsages.find((u) => u.type === 'gift-use');
+      const conveyorUsage = dateUsages.find((u) => u.type === 'conveyor-waste');
+      const messUsage = dateUsages.find((u) => u.type === 'mess-use');
+      const storeUsage = dateUsages.find((u) => u.type === 'store-waste');
 
       cumulativeEggs += prodEggs - soldEggs - usageForDate;
-      const stockDisplay = eggsToPetiTrays(Math.max(0, cumulativeEggs));
+      const closingStockEggs = Math.max(0, cumulativeEggs);
+      const stockDisplay = eggsToPetiTrays(closingStockEggs);
 
       return {
         date: r.date,
+        openingStockEggs,
+        openingStockFormatted,
         productionPeti: r.productionPeti,
         productionTrays: r.productionTrays,
         productionEggs: prodEggs,
         soldPeti: r.soldPeti,
         soldTrays: r.soldTrays,
         soldEggs,
+        giftUse: giftUsage ? `${giftUsage.peti}P, ${giftUsage.trays}T` : '---',
+        conveyorWaste: conveyorUsage ? `${conveyorUsage.peti}P, ${conveyorUsage.trays}T` : '---',
+        messUse: messUsage ? `${messUsage.peti}P, ${messUsage.trays}T` : '---',
+        storeWaste: storeUsage ? `${storeUsage.peti}P, ${storeUsage.trays}T` : '---',
         usageEggs: usageForDate,
-        closingStockEggs: Math.max(0, cumulativeEggs),
+        closingStockEggs,
         closingStockFormatted: stockDisplay.formatted,
       };
     });
 
     return successResponse({ rows, enabled: true });
+  });
+
+  // GET /api/v1/flocks/:flockId/reports/diesel
+  fastify.get('/flocks/:flockId/reports/diesel', async (request, reply) => {
+    const { flockId } = request.params as { flockId: string };
+
+    if (isDatabaseConnected()) {
+      try {
+        const [flock] = await db.select().from(schema.flocks).where(eq(schema.flocks.id, flockId));
+        if (!flock) {
+          reply.status(404);
+          return errorResponse('Flock not found', 'NOT_FOUND');
+        }
+
+        const records = await db
+          .select()
+          .from(schema.dieselDailyRecords)
+          .where(eq(schema.dieselDailyRecords.flockId, flockId))
+          .orderBy(asc(schema.dieselDailyRecords.date));
+
+        let stockLiters = 0;
+        const rows = records.map((r) => {
+          const arr = parseFloat(r.arrivalLiters);
+          const used = parseFloat(r.usedLiters);
+          stockLiters += arr - used;
+          return {
+            date: r.date,
+            arrivalLiters: arr,
+            usedLiters: used,
+            stockLiters: Number(stockLiters.toFixed(2)),
+          };
+        });
+
+        return successResponse({ flock, rows });
+      } catch (err) {
+        // Fall through
+      }
+    }
+
+    const records = mockStore.dieselRecords
+      .filter((r) => r.flockId === flockId)
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    let stockLiters = 0;
+    const rows = records.map((r) => {
+      stockLiters += r.arrivalLiters - r.usedLiters;
+      return {
+        date: r.date,
+        arrivalLiters: r.arrivalLiters,
+        usedLiters: r.usedLiters,
+        stockLiters: Number(stockLiters.toFixed(2)),
+      };
+    });
+
+    return successResponse({ rows });
+  });
+
+  // GET /api/v1/flocks/:flockId/reports/weight
+  fastify.get('/flocks/:flockId/reports/weight', async (request, reply) => {
+    const { flockId } = request.params as { flockId: string };
+
+    if (isDatabaseConnected()) {
+      try {
+        const [flock] = await db.select().from(schema.flocks).where(eq(schema.flocks.id, flockId));
+        if (!flock) {
+          reply.status(404);
+          return errorResponse('Flock not found', 'NOT_FOUND');
+        }
+
+        const records = await db
+          .select()
+          .from(schema.weightRecords)
+          .where(eq(schema.weightRecords.flockId, flockId))
+          .orderBy(asc(schema.weightRecords.date));
+
+        const rows = records.map((r) => {
+          const age = calculateBirdAge(r.date, flock.startDate);
+          return {
+            date: r.date,
+            age: age.formatted,
+            week: age.week,
+            day: age.day,
+            weight: parseFloat(r.weight),
+            uniformity: parseFloat(r.uniformity),
+          };
+        });
+
+        return successResponse({ flock, rows });
+      } catch (err) {
+        // Fall through
+      }
+    }
+
+    const flock = mockStore.flocks.find((f) => f.id === flockId);
+    const records = mockStore.weightRecords
+      .filter((r) => r.flockId === flockId)
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    const rows = records.map((r) => {
+      const age = calculateBirdAge(r.date, flock?.startDate || '2026-08-01');
+      return {
+        date: r.date,
+        age: age.formatted,
+        week: age.week,
+        day: age.day,
+        weight: r.weight,
+        uniformity: r.uniformity,
+      };
+    });
+
+    return successResponse({ rows });
+  });
+
+  // GET /api/v1/flocks/:flockId/reports/health
+  fastify.get('/flocks/:flockId/reports/health', async (request, reply) => {
+    const { flockId } = request.params as { flockId: string };
+
+    if (isDatabaseConnected()) {
+      try {
+        const [flock] = await db.select().from(schema.flocks).where(eq(schema.flocks.id, flockId));
+        if (!flock) {
+          reply.status(404);
+          return errorResponse('Flock not found', 'NOT_FOUND');
+        }
+
+        const birdRecords = await db
+          .select()
+          .from(schema.birdDailyRecords)
+          .where(eq(schema.birdDailyRecords.flockId, flockId))
+          .orderBy(asc(schema.birdDailyRecords.date));
+
+        const medRecords = await db
+          .select()
+          .from(schema.medicineDailyRecords)
+          .where(eq(schema.medicineDailyRecords.flockId, flockId))
+          .orderBy(asc(schema.medicineDailyRecords.date));
+
+        const allVaccinations = await db
+          .select()
+          .from(schema.vaccinationRecords)
+          .where(eq(schema.vaccinationRecords.flockId, flockId));
+
+        const allEntries = await db.select().from(schema.medicineEntries);
+        const allMedicines = await db.select().from(schema.medicines);
+
+        // Map dates
+        const dateSet = new Set<string>();
+        medRecords.forEach((m) => dateSet.add(m.date));
+        allVaccinations.forEach((v) => dateSet.add(v.date));
+        const dates = Array.from(dateSet).sort();
+
+        let runningMortality = 0;
+        const mortalityByDate = new Map<string, number>();
+        birdRecords.forEach((b) => {
+          runningMortality += b.mortality;
+          mortalityByDate.set(b.date, runningMortality);
+        });
+
+        const rows = dates.map((d) => {
+          const med = medRecords.find((m) => m.date === d);
+          const vac = allVaccinations.find((v) => v.date === d);
+          const currentMort = mortalityByDate.get(d) ?? 0;
+          const remaining = Math.max(0, flock.initialBirds - currentMort);
+
+          const entries = med ? allEntries.filter((e) => e.dailyRecordId === med.id) : [];
+          const medDetails = entries.map((e) => {
+            const master = allMedicines.find((m) => m.id === e.medicineId);
+            return `${master?.name || 'Medicine'} (${e.dosagePerLiter || 0} ml/L)`;
+          });
+
+          const waterLiters = med ? parseFloat(med.waterLiters) : 0;
+          const waterPerBirdMl = calculateWaterPerBirdMl(waterLiters, remaining);
+
+          return {
+            date: d,
+            type: med?.type || 'water',
+            waterLiters,
+            waterPerBirdMl,
+            medicines: medDetails.join(', ') || 'None',
+            vaccineName: vac?.vaccineName || '---',
+            vaccineNotes: vac?.notes || '---',
+          };
+        });
+
+        return successResponse({ flock, rows });
+      } catch (err) {
+        // Fall through
+      }
+    }
+
+    return successResponse({ rows: [] });
   });
 };

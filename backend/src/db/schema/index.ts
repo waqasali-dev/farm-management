@@ -44,6 +44,8 @@ export const birdDailyRecords = pgTable('bird_daily_records', {
   flockId: uuid('flock_id').references(() => flocks.id, { onDelete: 'cascade' }).notNull(),
   date: date('date').notNull(),
   mortality: integer('mortality').default(0).notNull(),
+  moat: integer('moat').default(0).notNull(),
+  moatPercentage: numeric('moat_percentage', { precision: 6, scale: 3 }).default('0').notNull(),
   lightHours: numeric('light_hours', { precision: 4, scale: 2 }),
   maxTemperature: numeric('max_temperature', { precision: 5, scale: 2 }),
   minTemperature: numeric('min_temperature', { precision: 5, scale: 2 }),

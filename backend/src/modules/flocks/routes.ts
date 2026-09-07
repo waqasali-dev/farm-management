@@ -135,13 +135,16 @@ export const flockRoutes: FastifyPluginAsync = async (fastify) => {
               baselineDate = startDate;
             }
 
-            // 1. Mortality to date
+            // 1. Mortality to date (moat)
             if (openingBalances.cumulativeMortality > 0) {
+              const moatPct = initialBirds > 0 ? Number(((openingBalances.cumulativeMortality / initialBirds) * 100).toFixed(3)) : 0;
               await tx.insert(schema.birdDailyRecords).values({
                 farmId: farm.id,
                 flockId: newFlock.id,
                 date: baselineDate,
                 mortality: openingBalances.cumulativeMortality,
+                moat: openingBalances.cumulativeMortality,
+                moatPercentage: String(moatPct),
               });
             }
 

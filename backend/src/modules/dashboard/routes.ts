@@ -207,8 +207,10 @@ export const dashboardRoutes: FastifyPluginAsync = async (fastify) => {
             initial: flock.initialBirds,
             todayMortality,
             cumulativeMortality,
+            moat: cumulativeMortality,
             remaining: remainingBirds,
             mortalityRate,
+            moatPercentage: mortalityRate,
           },
           feed: {
             totalReceivedBags: totalArrivalBags,
