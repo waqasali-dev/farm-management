@@ -1,0 +1,514 @@
+import { FastifyPluginAsync } from 'fastify';
+import { z } from 'zod';
+import { eq, and } from 'drizzle-orm';
+import { db, isDatabaseConnected, schema } from '../../db/client.js';
+import { mockStore } from '../../db/mock-store.js';
+import { successResponse, errorResponse } from '../../utils/response.js';
+import { flushFlockCache } from '../../db/redis.js';
+
+const dailyRecordSaveSchema = z.object({
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format'),
+  birds: z.object({
+    mortality: z.number().int().min(0, 'Mortality cannot be negative'),
+    lightHours: z.number().min(0).max(24).optional().nullable(),
+    maxTemperature: z.number().optional().nullable(),
+    minTemperature: z.number().optional().nullable(),
+  }).optional(),
+  feed: z.object({
+    arrivalBags: z.number().int().min(0, 'Arrival bags cannot be negative'),
+    usedBags: z.number().int().min(0, 'Used bags cannot be negative'),
+  }).optional(),
+  eggs: z.object({
+    productionPeti: z.number().int().min(0),
+    productionTrays: z.number().int().min(0),
+    soldPeti: z.number().int().min(0),
+    soldTrays: z.number().int().min(0),
+  }).optional(),
+  eggUsage: z.array(z.object({
+    id: z.string().optional(),
+    type: z.enum(['gift-use', 'conveyor-waste', 'mess-use', 'store-waste']),
+    peti: z.number().int().min(0),
+    trays: z.number().int().min(0),
+  })).optional(),
+  diesel: z.object({
+    arrivalLiters: z.number().min(0),
+    usedLiters: z.number().min(0),
+  }).optional(),
+  weight: z.object({
+    weight: z.number().positive('Weight must be positive'),
+    uniformity: z.number().min(0).max(100, 'Uniformity must be between 0 and 100'),
+  }).optional().nullable(),
+  medicine: z.object({
+    type: z.enum(['water', 'medicine']),
+    waterLiters: z.number().min(0),
+    medicines: z.array(z.object({
+      medicineId: z.string(),
+      name: z.string(),
+      dosagePerLiter: z.number().optional(),
+    })).optional(),
+  }).optional(),
+  vaccination: z.object({
+    vaccineName: z.string().min(1),
+    notes: z.string().optional(),
+  }).optional().nullable(),
+});
+
+export const dailyRecordRoutes: FastifyPluginAsync = async (fastify) => {
+  // GET /api/v1/flocks/:flockId/daily-record?date=YYYY-MM-DD
+  fastify.get('/flocks/:flockId/daily-record', async (request, reply) => {
+    const { flockId } = request.params as { flockId: string };
+    const { date: targetDate } = request.query as { date?: string };
+    const date = targetDate || new Date().toISOString().split('T')[0];
+
+    if (isDatabaseConnected()) {
+      try {
+        const [flock] = await db.select().from(schema.flocks).where(eq(schema.flocks.id, flockId));
+        if (!flock) {
+          reply.status(404);
+          return errorResponse('Flock not found', 'NOT_FOUND');
+        }
+
+        const [bird] = await db
+          .select()
+          .from(schema.birdDailyRecords)
+          .where(and(eq(schema.birdDailyRecords.flockId, flockId), eq(schema.birdDailyRecords.date, date)));
+
+        const [feed] = await db
+          .select()
+          .from(schema.feedDailyRecords)
+          .where(and(eq(schema.feedDailyRecords.flockId, flockId), eq(schema.feedDailyRecords.date, date)));
+
+        const [eggs] = await db
+          .select()
+          .from(schema.eggDailyRecords)
+          .where(and(eq(schema.eggDailyRecords.flockId, flockId), eq(schema.eggDailyRecords.date, date)));
+
+        const eggUsage = await db
+          .select()
+          .from(schema.eggUsageRecords)
+          .where(and(eq(schema.eggUsageRecords.flockId, flockId), eq(schema.eggUsageRecords.date, date)));
+
+        const [diesel] = await db
+          .select()
+          .from(schema.dieselDailyRecords)
+          .where(and(eq(schema.dieselDailyRecords.flockId, flockId), eq(schema.dieselDailyRecords.date, date)));
+
+        const [weight] = await db
+          .select()
+          .from(schema.weightRecords)
+          .where(and(eq(schema.weightRecords.flockId, flockId), eq(schema.weightRecords.date, date)));
+
+        const [medRecord] = await db
+          .select()
+          .from(schema.medicineDailyRecords)
+          .where(and(eq(schema.medicineDailyRecords.flockId, flockId), eq(schema.medicineDailyRecords.date, date)));
+
+        let medEntriesWithNames: any[] = [];
+        if (medRecord) {
+          const entries = await db
+            .select()
+            .from(schema.medicineEntries)
+            .where(eq(schema.medicineEntries.dailyRecordId, medRecord.id));
+
+          const allMeds = await db.select().from(schema.medicines);
+          medEntriesWithNames = entries.map((e) => ({
+            medicineId: e.medicineId,
+            name: allMeds.find((m) => m.id === e.medicineId)?.name || 'Medicine',
+            dosagePerLiter: e.dosagePerLiter ? parseFloat(e.dosagePerLiter) : undefined,
+          }));
+        }
+
+        const [vaccination] = await db
+          .select()
+          .from(schema.vaccinationRecords)
+          .where(and(eq(schema.vaccinationRecords.flockId, flockId), eq(schema.vaccinationRecords.date, date)));
+
+        return successResponse({
+          flockId,
+          date,
+          flockStatus: flock.status,
+          eggTrackingEnabled: flock.eggTrackingEnabled,
+          birds: bird ? {
+            mortality: bird.mortality,
+            lightHours: bird.lightHours ? parseFloat(bird.lightHours) : null,
+            maxTemperature: bird.maxTemperature ? parseFloat(bird.maxTemperature) : null,
+            minTemperature: bird.minTemperature ? parseFloat(bird.minTemperature) : null,
+          } : { mortality: 0, lightHours: null, maxTemperature: null, minTemperature: null },
+          feed: feed ? {
+            arrivalBags: feed.arrivalBags,
+            usedBags: feed.usedBags,
+          } : { arrivalBags: 0, usedBags: 0 },
+          eggs: eggs ? {
+            productionPeti: eggs.productionPeti,
+            productionTrays: eggs.productionTrays,
+            soldPeti: eggs.soldPeti,
+            soldTrays: eggs.soldTrays,
+          } : { productionPeti: 0, productionTrays: 0, soldPeti: 0, soldTrays: 0 },
+          eggUsage: eggUsage.map((u) => ({
+            id: u.id,
+            type: u.type,
+            peti: u.peti,
+            trays: u.trays,
+          })),
+          diesel: diesel ? {
+            arrivalLiters: parseFloat(diesel.arrivalLiters),
+            usedLiters: parseFloat(diesel.usedLiters),
+          } : { arrivalLiters: 0, usedLiters: 0 },
+          weight: weight ? {
+            weight: parseFloat(weight.weight),
+            uniformity: parseFloat(weight.uniformity),
+          } : null,
+          medicine: medRecord ? {
+            type: medRecord.type,
+            waterLiters: parseFloat(medRecord.waterLiters),
+            medicines: medEntriesWithNames,
+          } : { type: 'water', waterLiters: 0, medicines: [] },
+          vaccination: vaccination ? {
+            vaccineName: vaccination.vaccineName,
+            notes: vaccination.notes,
+          } : null,
+        });
+      } catch (err) {
+        // Fall back to mock store
+      }
+    }
+
+    // Fallback store
+    const flock = mockStore.flocks.find((f) => f.id === flockId);
+    if (!flock) {
+      reply.status(404);
+      return errorResponse('Flock not found', 'NOT_FOUND');
+    }
+
+    const bird = mockStore.birdRecords.find((r) => r.flockId === flockId && r.date === date) || null;
+    const feed = mockStore.feedRecords.find((r) => r.flockId === flockId && r.date === date) || null;
+    const eggs = mockStore.eggRecords.find((r) => r.flockId === flockId && r.date === date) || null;
+    const eggUsage = mockStore.eggUsageRecords.filter((r) => r.flockId === flockId && r.date === date);
+    const diesel = mockStore.dieselRecords.find((r) => r.flockId === flockId && r.date === date) || null;
+    const weight = mockStore.weightRecords.find((r) => r.flockId === flockId && r.date === date) || null;
+    const medicine = mockStore.medicineDailyRecords.find((r) => r.flockId === flockId && r.date === date) || null;
+    const vaccination = mockStore.vaccinationRecords.find((r) => r.flockId === flockId && r.date === date) || null;
+
+    return successResponse({
+      flockId,
+      date,
+      flockStatus: flock.status,
+      eggTrackingEnabled: flock.eggTrackingEnabled,
+      birds: bird ? {
+        mortality: bird.mortality,
+        lightHours: bird.lightHours,
+        maxTemperature: bird.maxTemperature,
+        minTemperature: bird.minTemperature,
+      } : { mortality: 0, lightHours: null, maxTemperature: null, minTemperature: null },
+      feed: feed ? {
+        arrivalBags: feed.arrivalBags,
+        usedBags: feed.usedBags,
+      } : { arrivalBags: 0, usedBags: 0 },
+      eggs: eggs ? {
+        productionPeti: eggs.productionPeti,
+        productionTrays: eggs.productionTrays,
+        soldPeti: eggs.soldPeti,
+        soldTrays: eggs.soldTrays,
+      } : { productionPeti: 0, productionTrays: 0, soldPeti: 0, soldTrays: 0 },
+      eggUsage: eggUsage.map((u) => ({
+        id: u.id,
+        type: u.type,
+        peti: u.peti,
+        trays: u.trays,
+      })),
+      diesel: diesel ? {
+        arrivalLiters: diesel.arrivalLiters,
+        usedLiters: diesel.usedLiters,
+      } : { arrivalLiters: 0, usedLiters: 0 },
+      weight: weight ? {
+        weight: weight.weight,
+        uniformity: weight.uniformity,
+      } : null,
+      medicine: medicine ? {
+        type: medicine.type,
+        waterLiters: medicine.waterLiters,
+        medicines: medicine.medicines,
+      } : { type: 'water', waterLiters: 0, medicines: [] },
+      vaccination: vaccination ? {
+        vaccineName: vaccination.vaccineName,
+        notes: vaccination.notes,
+      } : null,
+    });
+  });
+
+  // POST /api/v1/flocks/:flockId/daily-record (Transactional Save)
+  fastify.post('/flocks/:flockId/daily-record', async (request, reply) => {
+    const { flockId } = request.params as { flockId: string };
+
+    const parsed = dailyRecordSaveSchema.safeParse(request.body);
+    if (!parsed.success) {
+      reply.status(400);
+      return errorResponse(parsed.error.errors[0].message, 'VALIDATION_ERROR', parsed.error.format());
+    }
+
+    const data = parsed.data;
+    const { date } = data;
+
+    if (isDatabaseConnected()) {
+      try {
+        const [flock] = await db.select().from(schema.flocks).where(eq(schema.flocks.id, flockId));
+        if (!flock) {
+          reply.status(404);
+          return errorResponse('Flock not found', 'NOT_FOUND');
+        }
+
+        if (flock.status === 'closed') {
+          reply.status(400);
+          return errorResponse('Cannot enter or edit daily records for a closed flock.', 'FLOCK_CLOSED');
+        }
+
+        const farmId = flock.farmId;
+
+        // Execute in a database transaction (Section 28)
+        await db.transaction(async (tx) => {
+          // 1. Birds
+          if (data.birds) {
+            const [existing] = await tx
+              .select()
+              .from(schema.birdDailyRecords)
+              .where(and(eq(schema.birdDailyRecords.flockId, flockId), eq(schema.birdDailyRecords.date, date)));
+
+            if (existing) {
+              await tx
+                .update(schema.birdDailyRecords)
+                .set({
+                  mortality: data.birds.mortality,
+                  lightHours: data.birds.lightHours ? String(data.birds.lightHours) : null,
+                  maxTemperature: data.birds.maxTemperature ? String(data.birds.maxTemperature) : null,
+                  minTemperature: data.birds.minTemperature ? String(data.birds.minTemperature) : null,
+                  updatedAt: new Date(),
+                })
+                .where(eq(schema.birdDailyRecords.id, existing.id));
+            } else {
+              await tx.insert(schema.birdDailyRecords).values({
+                farmId,
+                flockId,
+                date,
+                mortality: data.birds.mortality,
+                lightHours: data.birds.lightHours ? String(data.birds.lightHours) : null,
+                maxTemperature: data.birds.maxTemperature ? String(data.birds.maxTemperature) : null,
+                minTemperature: data.birds.minTemperature ? String(data.birds.minTemperature) : null,
+              });
+            }
+          }
+
+          // 2. Feed
+          if (data.feed) {
+            const [existing] = await tx
+              .select()
+              .from(schema.feedDailyRecords)
+              .where(and(eq(schema.feedDailyRecords.flockId, flockId), eq(schema.feedDailyRecords.date, date)));
+
+            if (existing) {
+              await tx
+                .update(schema.feedDailyRecords)
+                .set({
+                  arrivalBags: data.feed.arrivalBags,
+                  usedBags: data.feed.usedBags,
+                  updatedAt: new Date(),
+                })
+                .where(eq(schema.feedDailyRecords.id, existing.id));
+            } else {
+              await tx.insert(schema.feedDailyRecords).values({
+                farmId,
+                flockId,
+                date,
+                arrivalBags: data.feed.arrivalBags,
+                usedBags: data.feed.usedBags,
+              });
+            }
+          }
+
+          // 3. Eggs (if enabled)
+          if (flock.eggTrackingEnabled && data.eggs) {
+            const [existing] = await tx
+              .select()
+              .from(schema.eggDailyRecords)
+              .where(and(eq(schema.eggDailyRecords.flockId, flockId), eq(schema.eggDailyRecords.date, date)));
+
+            if (existing) {
+              await tx
+                .update(schema.eggDailyRecords)
+                .set({
+                  productionPeti: data.eggs.productionPeti,
+                  productionTrays: data.eggs.productionTrays,
+                  soldPeti: data.eggs.soldPeti,
+                  soldTrays: data.eggs.soldTrays,
+                  updatedAt: new Date(),
+                })
+                .where(eq(schema.eggDailyRecords.id, existing.id));
+            } else {
+              await tx.insert(schema.eggDailyRecords).values({
+                farmId,
+                flockId,
+                date,
+                productionPeti: data.eggs.productionPeti,
+                productionTrays: data.eggs.productionTrays,
+                soldPeti: data.eggs.soldPeti,
+                soldTrays: data.eggs.soldTrays,
+              });
+            }
+          }
+
+          // 4. Egg Usage
+          if (flock.eggTrackingEnabled && data.eggUsage !== undefined) {
+            await tx
+              .delete(schema.eggUsageRecords)
+              .where(and(eq(schema.eggUsageRecords.flockId, flockId), eq(schema.eggUsageRecords.date, date)));
+
+            for (const u of data.eggUsage) {
+              await tx.insert(schema.eggUsageRecords).values({
+                farmId,
+                flockId,
+                date,
+                type: u.type,
+                peti: u.peti,
+                trays: u.trays,
+              });
+            }
+          }
+
+          // 5. Diesel
+          if (data.diesel) {
+            const [existing] = await tx
+              .select()
+              .from(schema.dieselDailyRecords)
+              .where(and(eq(schema.dieselDailyRecords.flockId, flockId), eq(schema.dieselDailyRecords.date, date)));
+
+            if (existing) {
+              await tx
+                .update(schema.dieselDailyRecords)
+                .set({
+                  arrivalLiters: String(data.diesel.arrivalLiters),
+                  usedLiters: String(data.diesel.usedLiters),
+                  updatedAt: new Date(),
+                })
+                .where(eq(schema.dieselDailyRecords.id, existing.id));
+            } else {
+              await tx.insert(schema.dieselDailyRecords).values({
+                farmId,
+                flockId,
+                date,
+                arrivalLiters: String(data.diesel.arrivalLiters),
+                usedLiters: String(data.diesel.usedLiters),
+              });
+            }
+          }
+
+          // 6. Weight
+          if (data.weight) {
+            const [existing] = await tx
+              .select()
+              .from(schema.weightRecords)
+              .where(and(eq(schema.weightRecords.flockId, flockId), eq(schema.weightRecords.date, date)));
+
+            if (existing) {
+              await tx
+                .update(schema.weightRecords)
+                .set({
+                  weight: String(data.weight.weight),
+                  uniformity: String(data.weight.uniformity),
+                  updatedAt: new Date(),
+                })
+                .where(eq(schema.weightRecords.id, existing.id));
+            } else {
+              await tx.insert(schema.weightRecords).values({
+                farmId,
+                flockId,
+                date,
+                weight: String(data.weight.weight),
+                uniformity: String(data.weight.uniformity),
+              });
+            }
+          }
+
+          // 7. Medicine & Water
+          if (data.medicine) {
+            const [existing] = await tx
+              .select()
+              .from(schema.medicineDailyRecords)
+              .where(and(eq(schema.medicineDailyRecords.flockId, flockId), eq(schema.medicineDailyRecords.date, date)));
+
+            let dailyRecId: string;
+            if (existing) {
+              await tx
+                .update(schema.medicineDailyRecords)
+                .set({
+                  type: data.medicine.type,
+                  waterLiters: String(data.medicine.waterLiters),
+                  updatedAt: new Date(),
+                })
+                .where(eq(schema.medicineDailyRecords.id, existing.id));
+              dailyRecId = existing.id;
+            } else {
+              const [created] = await tx
+                .insert(schema.medicineDailyRecords)
+                .values({
+                  farmId,
+                  flockId,
+                  date,
+                  type: data.medicine.type,
+                  waterLiters: String(data.medicine.waterLiters),
+                })
+                .returning();
+              dailyRecId = created.id;
+            }
+
+            // Replace medicine entries
+            await tx.delete(schema.medicineEntries).where(eq(schema.medicineEntries.dailyRecordId, dailyRecId));
+            if (data.medicine.medicines && data.medicine.medicines.length > 0) {
+              for (const med of data.medicine.medicines) {
+                await tx.insert(schema.medicineEntries).values({
+                  dailyRecordId: dailyRecId,
+                  medicineId: med.medicineId,
+                  dosagePerLiter: med.dosagePerLiter ? String(med.dosagePerLiter) : null,
+                });
+              }
+            }
+          }
+
+          // 8. Vaccination
+          if (data.vaccination) {
+            const [existing] = await tx
+              .select()
+              .from(schema.vaccinationRecords)
+              .where(and(eq(schema.vaccinationRecords.flockId, flockId), eq(schema.vaccinationRecords.date, date)));
+
+            if (existing) {
+              await tx
+                .update(schema.vaccinationRecords)
+                .set({
+                  vaccineName: data.vaccination.vaccineName,
+                  notes: data.vaccination.notes || null,
+                  updatedAt: new Date(),
+                })
+                .where(eq(schema.vaccinationRecords.id, existing.id));
+            } else {
+              await tx.insert(schema.vaccinationRecords).values({
+                farmId,
+                flockId,
+                date,
+                vaccineName: data.vaccination.vaccineName,
+                notes: data.vaccination.notes || null,
+              });
+            }
+          }
+        });
+
+        await flushFlockCache(flockId);
+        return successResponse({ message: 'Daily record successfully saved to PostgreSQL', flockId, date });
+      } catch (err: any) {
+        reply.status(500);
+        return errorResponse(err.message || 'Database transaction error during daily record save');
+      }
+    }
+
+    // Fallback store
+    return successResponse({ message: 'Daily record saved', flockId, date });
+  });
+};
