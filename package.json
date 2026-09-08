@@ -14,6 +14,7 @@
     "dev:frontend": "npm run dev --workspace=frontend",
     "build": "npm run build --workspaces",
     "build:backend": "npm run build --workspace=backend",
+    "build:frontend": "npm run build --workspace=frontend",
     "test": "npm run test --workspaces",
     "typecheck": "npm run typecheck --workspaces",
     "db:apply-schema": "npm run db:apply-schema --workspace=backend",

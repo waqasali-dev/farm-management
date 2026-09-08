@@ -11,6 +11,9 @@
     "test": "echo \"Frontend tests passed\"",
     "typecheck": "tsc --noEmit"
   },
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "dependencies": {
     "@tanstack/react-query": "^5.66.0",
     "clsx": "^2.1.1",
