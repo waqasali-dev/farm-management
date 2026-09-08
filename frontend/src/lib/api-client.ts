@@ -3,12 +3,19 @@ import { DashboardData, Flock, HealthStatus, UnifiedDailyRecord } from '../types
 const API_BASE = '/api/v1';
 
 async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
+  const headers: Record<string, string> = {};
+
+  if (options?.body) {
+    headers['Content-Type'] = 'application/json';
+  }
+
+  if (options?.headers) {
+    Object.assign(headers, options.headers);
+  }
+
   const res = await fetch(`${API_BASE}${url}`, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...options?.headers,
-    },
     ...options,
+    headers,
   });
 
   const payload = await res.json();
@@ -49,9 +56,16 @@ export const api = {
     body: JSON.stringify(data),
   }),
 
+  updateFlock: (flockId: string, data: { name?: string; eggTrackingEnabled?: boolean }) =>
+    fetchJson<Flock>(`/flocks/${flockId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
   closeFlock: (flockId: string) =>
     fetchJson<Flock>(`/flocks/${flockId}/close`, {
       method: 'POST',
+      body: JSON.stringify({}),
     }),
 
   // Dashboard

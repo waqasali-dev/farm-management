@@ -39,6 +39,21 @@ export function useCreateFlockMutation() {
   });
 }
 
+export function useUpdateFlockMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ flockId, data }: { flockId: string; data: { name?: string; eggTrackingEnabled?: boolean } }) =>
+      api.updateFlock(flockId, data),
+    onSuccess: (_, { flockId }) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.flocks.all() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.flocks.detail(flockId) });
+      queryClient.invalidateQueries({ queryKey: ['daily-record', flockId] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard', flockId] });
+      queryClient.invalidateQueries({ queryKey: ['reports', flockId] });
+    },
+  });
+}
+
 export function useCloseFlockMutation() {
   const queryClient = useQueryClient();
   return useMutation({

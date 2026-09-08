@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
 import { Flock, HealthStatus } from '../../types/index.js';
 import { useFlocksQuery, useCloseFlockMutation } from '../../lib/queries.js';
-import { Plus, Layers } from 'lucide-react';
+import { Plus, Layers, Lock, Check, AlertCircle } from 'lucide-react';
 import { CreateFlockModal } from './CreateFlockModal.js';
+import { ConfirmModal } from '../../components/ui/ConfirmModal.js';
 
 interface OutletContextType {
   activeFlock: Flock | null;
@@ -13,26 +14,33 @@ interface OutletContextType {
 }
 
 export const FlocksPage: React.FC = () => {
-  const { activeFlock } = useOutletContext<OutletContextType>();
+  const { activeFlock, refreshFlocks } = useOutletContext<OutletContextType>();
   const [filter, setFilter] = useState<'all' | 'active' | 'closed'>('all');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [flockToClose, setFlockToClose] = useState<Flock | null>(null);
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const navigate = useNavigate();
 
   // TanStack Query for Flocks List
   const { data: flocks = [], isLoading } = useFlocksQuery(filter === 'all' ? undefined : filter);
   const closeFlockMutation = useCloseFlockMutation();
 
-  const handleCloseFlock = async (flock: Flock) => {
-    if (
-      window.confirm(
-        `Are you sure you want to CLOSE flock [${flock.flockCode}] ${flock.name}?\nClosed flocks are permanently read-only by default to preserve historical audit data.`
-      )
-    ) {
-      try {
-        await closeFlockMutation.mutateAsync(flock.id);
-      } catch (err: any) {
-        alert(`Error: ${err.message}`);
-      }
+  const handleConfirmCloseFlock = async () => {
+    if (!flockToClose) return;
+    try {
+      await closeFlockMutation.mutateAsync(flockToClose.id);
+      refreshFlocks?.();
+      setFeedback({
+        type: 'success',
+        message: `Flock [${flockToClose.flockCode}] ${flockToClose.name} has been closed and marked read-only.`,
+      });
+      setFlockToClose(null);
+    } catch (err: any) {
+      setFeedback({
+        type: 'error',
+        message: err.message || 'Failed to close flock.',
+      });
+      setFlockToClose(null);
     }
   };
 
@@ -82,6 +90,27 @@ export const FlocksPage: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* In-Page Alerts / Feedback Banner */}
+      {feedback && (
+        <div
+          className={`p-4 border border-black text-xs font-mono flex items-center justify-between ${
+            feedback.type === 'success' ? 'bg-zinc-100 text-black' : 'bg-zinc-100 text-black border-2'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            {feedback.type === 'success' ? (
+              <Check className="w-4 h-4 text-black" />
+            ) : (
+              <AlertCircle className="w-4 h-4 text-black" />
+            )}
+            <span>[{feedback.type.toUpperCase()}] {feedback.message}</span>
+          </div>
+          <button onClick={() => setFeedback(null)} className="text-zinc-500 hover:text-black">
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* Flocks Table */}
       <div className="panel overflow-hidden shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]">
@@ -174,7 +203,7 @@ export const FlocksPage: React.FC = () => {
                         </button>
                         {flock.status === 'active' && (
                           <button
-                            onClick={() => handleCloseFlock(flock)}
+                            onClick={() => setFlockToClose(flock)}
                             disabled={closeFlockMutation.isPending}
                             className="border border-zinc-400 text-zinc-700 px-2 py-1 text-[11px] uppercase hover:bg-zinc-200 disabled:opacity-50"
                             title="Close flock and mark read-only"
@@ -196,6 +225,23 @@ export const FlocksPage: React.FC = () => {
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onCreated={() => {}}
+      />
+
+      {/* Close Flock Confirmation Overlay */}
+      <ConfirmModal
+        isOpen={!!flockToClose}
+        title="Close Flock & Mark Read-Only"
+        icon={<Lock className="w-4 h-4 text-white" />}
+        message={
+          flockToClose
+            ? `Are you sure you want to CLOSE flock [${flockToClose.flockCode}] ${flockToClose.name}?\n\nClosed flocks are permanently read-only by default to preserve historical audit data. Daily operational records cannot be committed to closed flocks.`
+            : ''
+        }
+        confirmLabel="Confirm Close Flock"
+        cancelLabel="Cancel"
+        isLoading={closeFlockMutation.isPending}
+        onConfirm={handleConfirmCloseFlock}
+        onCancel={() => setFlockToClose(null)}
       />
     </div>
   );

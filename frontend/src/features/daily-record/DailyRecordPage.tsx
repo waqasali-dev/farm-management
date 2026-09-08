@@ -5,6 +5,7 @@ import {
   useDailyRecordQuery,
   useMedicinesQuery,
   useSaveDailyRecordMutation,
+  useUpdateFlockMutation,
 } from '../../lib/queries.js';
 import {
   petiTraysToEggs,
@@ -23,7 +24,9 @@ import {
   Check,
   AlertCircle,
   RefreshCw,
+  Egg,
 } from 'lucide-react';
+import { ConfirmModal } from '../../components/ui/ConfirmModal.js';
 
 export const DailyRecordPage: React.FC = () => {
   const { flockId } = useParams<{ flockId: string }>();
@@ -33,12 +36,14 @@ export const DailyRecordPage: React.FC = () => {
     searchParams.get('date') || new Date().toISOString().split('T')[0]
   );
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [isEggConfirmOpen, setIsEggConfirmOpen] = useState(false);
 
   // TanStack Queries (Section 30, 31)
   const { data: flock, isLoading: isFlockLoading } = useFlockQuery(flockId);
   const { data: recordData, isLoading: isRecordLoading, isFetching: isRecordFetching, refetch } = useDailyRecordQuery(flockId, date);
   const { data: medicinesMaster = [] } = useMedicinesQuery();
   const saveMutation = useSaveDailyRecordMutation(flockId || '', date);
+  const updateFlockMutation = useUpdateFlockMutation();
 
   // Daily Form State
   const [mortality, setMortality] = useState<number>(0);
@@ -179,6 +184,28 @@ export const DailyRecordPage: React.FC = () => {
     }
   };
 
+  const handleEnableEggTracking = async () => {
+    if (!flock || flock.status === 'closed') return;
+    try {
+      await updateFlockMutation.mutateAsync({
+        flockId: flock.id,
+        data: { eggTrackingEnabled: true },
+      });
+      setIsEggConfirmOpen(false);
+      setActiveTab('eggs');
+      setFeedback({
+        type: 'success',
+        message: `Egg production tracking successfully activated for flock [${flock.flockCode}]! You can now log egg production and usage below.`,
+      });
+    } catch (err: any) {
+      setIsEggConfirmOpen(false);
+      setFeedback({
+        type: 'error',
+        message: err.message || 'Failed to enable egg tracking.',
+      });
+    }
+  };
+
   // Live calculation estimates with Moat (collective died birds from flock start till today)
   const recordedMoat = recordData?.birds?.moat ?? 0;
   const recordedTodayMortality = recordData?.birds?.mortality ?? 0;
@@ -307,6 +334,37 @@ export const DailyRecordPage: React.FC = () => {
           <button onClick={() => setFeedback(null)} className="text-zinc-500 hover:text-black">
             ✕
           </button>
+        </div>
+      )}
+
+      {/* Option to start tracking eggs if disabled */}
+      {!flock?.eggTrackingEnabled && flock?.status === 'active' && (
+        <div className="panel p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-2 border-black bg-zinc-50 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+          <div className="flex items-start sm:items-center gap-3">
+            <div className="w-8 h-8 bg-black text-white flex items-center justify-center font-bold shrink-0">
+              <Egg className="w-4 h-4 text-white" />
+            </div>
+            <div>
+              <div className="text-xs font-bold uppercase tracking-wider text-black flex items-center gap-2">
+                <span>Egg Production Tracking is Currently Disabled</span>
+                <span className="text-[10px] font-mono font-normal border border-black bg-white px-1.5 py-0.2">Point of Lay</span>
+              </div>
+              <p className="text-[11px] font-mono text-zinc-600 mt-0.5">
+                Have these birds matured and started laying eggs? Check mark below to activate egg tracking from this record onwards.
+              </p>
+            </div>
+          </div>
+
+          <label className="flex items-center gap-2.5 cursor-pointer border-2 border-black bg-white px-4 py-2 text-xs font-mono font-bold uppercase hover:bg-zinc-100 shrink-0 select-none shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-transform active:translate-x-0.5 active:translate-y-0.5">
+            <input
+              type="checkbox"
+              checked={false}
+              onChange={() => setIsEggConfirmOpen(true)}
+              disabled={updateFlockMutation.isPending}
+              className="w-4 h-4 accent-black cursor-pointer"
+            />
+            <span>{updateFlockMutation.isPending ? 'Activating...' : 'Start Tracking Egg Production'}</span>
+          </label>
         </div>
       )}
 
@@ -1132,6 +1190,19 @@ export const DailyRecordPage: React.FC = () => {
           </button>
         </div>
       )}
+
+      {/* Egg Tracking Confirmation Overlay */}
+      <ConfirmModal
+        isOpen={isEggConfirmOpen}
+        title="Activate Egg Production Tracking"
+        icon={<Egg className="w-4 h-4 text-white" />}
+        message={`Are you sure you want to start tracking egg production for flock [${flock?.flockCode}] ${flock?.name} from this record forward?\n\nOnce confirmed, egg production, sales, usage, and inventory tracking will be permanently activated for this flock.`}
+        confirmLabel="Activate Egg Tracking"
+        cancelLabel="Cancel"
+        isLoading={updateFlockMutation.isPending}
+        onConfirm={handleEnableEggTracking}
+        onCancel={() => setIsEggConfirmOpen(false)}
+      />
     </div>
   );
 };

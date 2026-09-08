@@ -230,6 +230,8 @@ export const flockRoutes: FastifyPluginAsync = async (fastify) => {
           lightHours: null,
           maxTemperature: null,
           minTemperature: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
         });
       }
       if (openingBalances.remainingFeedBags > 0) {
@@ -240,6 +242,8 @@ export const flockRoutes: FastifyPluginAsync = async (fastify) => {
           date: baselineDate,
           arrivalBags: openingBalances.remainingFeedBags,
           usedBags: 0,
+          createdAt: new Date(),
+          updatedAt: new Date(),
         });
       }
       if (eggTrackingEnabled && (openingBalances.remainingEggPeti > 0 || openingBalances.remainingEggTrays > 0)) {
@@ -252,6 +256,8 @@ export const flockRoutes: FastifyPluginAsync = async (fastify) => {
           productionTrays: openingBalances.remainingEggTrays,
           soldPeti: 0,
           soldTrays: 0,
+          createdAt: new Date(),
+          updatedAt: new Date(),
         });
       }
       if (openingBalances.remainingDieselLiters > 0) {
@@ -262,6 +268,8 @@ export const flockRoutes: FastifyPluginAsync = async (fastify) => {
           date: baselineDate,
           arrivalLiters: openingBalances.remainingDieselLiters,
           usedLiters: 0,
+          createdAt: new Date(),
+          updatedAt: new Date(),
         });
       }
     }
