@@ -93,6 +93,7 @@ export interface UnifiedDailyRecord {
   date: string;
   flockStatus: 'active' | 'closed';
   eggTrackingEnabled: boolean;
+  hasExistingRecord?: boolean;
   birds: {
     mortality: number;
     moat?: number;

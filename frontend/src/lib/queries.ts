@@ -88,10 +88,11 @@ export function useSaveDailyRecordMutation(flockId: string, date: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (payload: any) => api.saveDailyRecord(flockId, payload),
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
+      const targetDate = variables?.date || date;
       // Invalidate daily record, dashboard, and reports queries
-      queryClient.invalidateQueries({ queryKey: queryKeys.dailyRecord(flockId, date) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard(flockId, date) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.dailyRecord(flockId, targetDate) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard(flockId, targetDate) });
       queryClient.invalidateQueries({ queryKey: ['reports', flockId] });
     },
   });

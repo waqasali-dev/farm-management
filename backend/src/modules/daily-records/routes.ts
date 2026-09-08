@@ -187,11 +187,23 @@ export const dailyRecordRoutes: FastifyPluginAsync = async (fastify) => {
 
         const birdAge = calculateBirdAge(date, flock.startDate);
 
+        const hasExistingRecord = Boolean(
+          bird ||
+          feed ||
+          eggs ||
+          (eggUsage && eggUsage.length > 0) ||
+          diesel ||
+          weight ||
+          medRecord ||
+          vaccination
+        );
+
         return successResponse({
           flockId,
           date,
           flockStatus: flock.status,
           eggTrackingEnabled: flock.eggTrackingEnabled,
+          hasExistingRecord,
           birds: bird ? {
             mortality: bird.mortality,
             moat: bird.moat || cumulativeMoat,
@@ -262,17 +274,68 @@ export const dailyRecordRoutes: FastifyPluginAsync = async (fastify) => {
     const medicine = mockStore.medicineDailyRecords.find((r) => r.flockId === flockId && r.date === date) || null;
     const vaccination = mockStore.vaccinationRecords.find((r) => r.flockId === flockId && r.date === date) || null;
 
+    const hasExistingRecord = Boolean(
+      bird ||
+      feed ||
+      eggs ||
+      (eggUsage && eggUsage.length > 0) ||
+      diesel ||
+      weight ||
+      medicine ||
+      vaccination
+    );
+
+    // Prior birds/mortality in mockStore
+    const priorBirdRecords = mockStore.birdRecords.filter((r) => r.flockId === flockId && r.date <= date);
+    const cumulativeMoat = priorBirdRecords.reduce((sum, r) => sum + r.mortality, 0);
+    const cumulativeMoatPct = flock.initialBirds > 0 ? Number(((cumulativeMoat / flock.initialBirds) * 100).toFixed(3)) : 0;
+
+    // Prior feed in mockStore
+    const allFeedUpToDate = mockStore.feedRecords.filter((r) => r.flockId === flockId && r.date <= date);
+    const totalArrivalBagsTillNow = allFeedUpToDate.reduce((sum, r) => sum + r.arrivalBags, 0);
+    const priorFeed = allFeedUpToDate.filter((r) => r.date < date);
+    const previousFeedStockBags = Math.max(
+      0,
+      priorFeed.reduce((sum, r) => sum + r.arrivalBags, 0) - priorFeed.reduce((sum, r) => sum + r.usedBags, 0)
+    );
+
+    // Prior eggs in mockStore
+    let previousEggStock = { peti: 0, trays: 0, looseEggs: 0, formatted: '0 Peti, 0 Trays' };
+    if (flock.eggTrackingEnabled) {
+      const priorEggs = mockStore.eggRecords.filter((r) => r.flockId === flockId && r.date < date);
+      const priorUsage = mockStore.eggUsageRecords.filter((r) => r.flockId === flockId && r.date < date);
+      let priorEggTotal = 0;
+      for (const r of priorEggs) {
+        priorEggTotal += petiTraysToEggs(r.productionPeti, r.productionTrays);
+        priorEggTotal -= petiTraysToEggs(r.soldPeti, r.soldTrays);
+      }
+      for (const u of priorUsage) {
+        priorEggTotal -= petiTraysToEggs(u.peti, u.trays);
+      }
+      previousEggStock = eggsToPetiTrays(Math.max(0, priorEggTotal));
+    }
+
+    // Prior diesel in mockStore
+    const priorDiesel = mockStore.dieselRecords.filter((r) => r.flockId === flockId && r.date < date);
+    const previousDieselStockLiters = Math.max(
+      0,
+      priorDiesel.reduce((sum, r) => sum + r.arrivalLiters, 0) - priorDiesel.reduce((sum, r) => sum + r.usedLiters, 0)
+    );
+
     return successResponse({
       flockId,
       date,
       flockStatus: flock.status,
       eggTrackingEnabled: flock.eggTrackingEnabled,
+      hasExistingRecord,
       birds: bird ? {
         mortality: bird.mortality,
+        moat: cumulativeMoat,
+        moatPercentage: cumulativeMoatPct,
         lightHours: bird.lightHours,
         maxTemperature: bird.maxTemperature,
         minTemperature: bird.minTemperature,
-      } : { mortality: 0, lightHours: null, maxTemperature: null, minTemperature: null },
+      } : { mortality: 0, moat: cumulativeMoat, moatPercentage: cumulativeMoatPct, lightHours: null, maxTemperature: null, minTemperature: null },
       feed: feed ? {
         arrivalBags: feed.arrivalBags,
         usedBags: feed.usedBags,
@@ -307,10 +370,10 @@ export const dailyRecordRoutes: FastifyPluginAsync = async (fastify) => {
         notes: vaccination.notes,
       } : null,
       priorBalances: {
-        previousFeedStockBags: 0,
-        totalArrivalBagsTillNow: 0,
-        previousEggStock: { peti: 0, trays: 0, looseEggs: 0, formatted: '0 Peti, 0 Trays' },
-        previousDieselStockLiters: 0,
+        previousFeedStockBags,
+        totalArrivalBagsTillNow,
+        previousEggStock,
+        previousDieselStockLiters,
         birdAge: calculateBirdAge(date, flock.startDate),
       },
     });
@@ -623,6 +686,196 @@ export const dailyRecordRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     // Fallback store
-    return successResponse({ message: 'Daily record saved', flockId, date });
+    const flock = mockStore.flocks.find((f) => f.id === flockId);
+    if (!flock) {
+      reply.status(404);
+      return errorResponse('Flock not found', 'NOT_FOUND');
+    }
+
+    if (flock.status === 'closed') {
+      reply.status(400);
+      return errorResponse('Cannot enter or edit daily records for a closed flock.', 'FLOCK_CLOSED');
+    }
+
+    const farmId = flock.farmId;
+
+    if (data.birds) {
+      const existing = mockStore.birdRecords.find((r) => r.flockId === flockId && r.date === date);
+      if (existing) {
+        existing.mortality = data.birds.mortality;
+        existing.lightHours = data.birds.lightHours ?? null;
+        existing.maxTemperature = data.birds.maxTemperature ?? null;
+        existing.minTemperature = data.birds.minTemperature ?? null;
+        existing.updatedAt = new Date();
+      } else {
+        mockStore.birdRecords.push({
+          id: crypto.randomUUID(),
+          farmId,
+          flockId,
+          date,
+          mortality: data.birds.mortality,
+          lightHours: data.birds.lightHours ?? null,
+          maxTemperature: data.birds.maxTemperature ?? null,
+          minTemperature: data.birds.minTemperature ?? null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+      }
+    }
+
+    if (data.feed) {
+      const existing = mockStore.feedRecords.find((r) => r.flockId === flockId && r.date === date);
+      if (existing) {
+        existing.arrivalBags = data.feed.arrivalBags;
+        existing.usedBags = data.feed.usedBags;
+        existing.updatedAt = new Date();
+      } else {
+        mockStore.feedRecords.push({
+          id: crypto.randomUUID(),
+          farmId,
+          flockId,
+          date,
+          arrivalBags: data.feed.arrivalBags,
+          usedBags: data.feed.usedBags,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+      }
+    }
+
+    if (flock.eggTrackingEnabled && data.eggs) {
+      const existing = mockStore.eggRecords.find((r) => r.flockId === flockId && r.date === date);
+      if (existing) {
+        existing.productionPeti = data.eggs.productionPeti;
+        existing.productionTrays = data.eggs.productionTrays;
+        existing.soldPeti = data.eggs.soldPeti;
+        existing.soldTrays = data.eggs.soldTrays;
+        existing.updatedAt = new Date();
+      } else {
+        mockStore.eggRecords.push({
+          id: crypto.randomUUID(),
+          farmId,
+          flockId,
+          date,
+          productionPeti: data.eggs.productionPeti,
+          productionTrays: data.eggs.productionTrays,
+          soldPeti: data.eggs.soldPeti,
+          soldTrays: data.eggs.soldTrays,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+      }
+    }
+
+    if (flock.eggTrackingEnabled && data.eggUsage !== undefined) {
+      mockStore.eggUsageRecords = mockStore.eggUsageRecords.filter(
+        (r) => !(r.flockId === flockId && r.date === date)
+      );
+      for (const u of data.eggUsage) {
+        mockStore.eggUsageRecords.push({
+          id: crypto.randomUUID(),
+          farmId,
+          flockId,
+          date,
+          type: u.type,
+          peti: u.peti,
+          trays: u.trays,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+      }
+    }
+
+    if (data.diesel) {
+      const existing = mockStore.dieselRecords.find((r) => r.flockId === flockId && r.date === date);
+      if (existing) {
+        existing.arrivalLiters = data.diesel.arrivalLiters;
+        existing.usedLiters = data.diesel.usedLiters;
+        existing.updatedAt = new Date();
+      } else {
+        mockStore.dieselRecords.push({
+          id: crypto.randomUUID(),
+          farmId,
+          flockId,
+          date,
+          arrivalLiters: data.diesel.arrivalLiters,
+          usedLiters: data.diesel.usedLiters,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+      }
+    }
+
+    if (data.weight) {
+      const existing = mockStore.weightRecords.find((r) => r.flockId === flockId && r.date === date);
+      if (existing) {
+        existing.weight = data.weight.weight;
+        existing.uniformity = data.weight.uniformity;
+        existing.updatedAt = new Date();
+      } else {
+        mockStore.weightRecords.push({
+          id: crypto.randomUUID(),
+          farmId,
+          flockId,
+          date,
+          weight: data.weight.weight,
+          uniformity: data.weight.uniformity,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+      }
+    }
+
+    if (data.medicine) {
+      const existing = mockStore.medicineDailyRecords.find((r) => r.flockId === flockId && r.date === date);
+      if (existing) {
+        existing.type = data.medicine.type;
+        existing.waterLiters = data.medicine.waterLiters;
+        existing.medicines = (data.medicine.medicines || []).map((m) => ({
+          medicineId: m.medicineId,
+          name: m.name,
+          dosagePerLiter: m.dosagePerLiter,
+        }));
+        existing.updatedAt = new Date();
+      } else {
+        mockStore.medicineDailyRecords.push({
+          id: crypto.randomUUID(),
+          farmId,
+          flockId,
+          date,
+          type: data.medicine.type,
+          waterLiters: data.medicine.waterLiters,
+          medicines: (data.medicine.medicines || []).map((m) => ({
+            medicineId: m.medicineId,
+            name: m.name,
+            dosagePerLiter: m.dosagePerLiter,
+          })),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+      }
+    }
+
+    if (data.vaccination) {
+      const existing = mockStore.vaccinationRecords.find((r) => r.flockId === flockId && r.date === date);
+      if (existing) {
+        existing.vaccineName = data.vaccination.vaccineName;
+        existing.notes = data.vaccination.notes;
+        existing.updatedAt = new Date();
+      } else {
+        mockStore.vaccinationRecords.push({
+          id: crypto.randomUUID(),
+          farmId,
+          flockId,
+          date,
+          vaccineName: data.vaccination.vaccineName,
+          notes: data.vaccination.notes,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+      }
+    }
+
+    return successResponse({ message: 'Daily record saved to fallback store', flockId, date });
   });
 };

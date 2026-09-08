@@ -28,15 +28,30 @@ import {
 } from 'lucide-react';
 import { ConfirmModal } from '../../components/ui/ConfirmModal.js';
 
+const getLocalDateString = () => {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 export const DailyRecordPage: React.FC = () => {
   const { flockId } = useParams<{ flockId: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [date, setDate] = useState<string>(
-    searchParams.get('date') || new Date().toISOString().split('T')[0]
+    searchParams.get('date') || getLocalDateString()
   );
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [isEggConfirmOpen, setIsEggConfirmOpen] = useState(false);
+
+  useEffect(() => {
+    const urlDate = searchParams.get('date');
+    if (urlDate && urlDate !== date) {
+      setDate(urlDate);
+    }
+  }, [searchParams]);
 
   // TanStack Queries (Section 30, 31)
   const { data: flock, isLoading: isFlockLoading } = useFlockQuery(flockId);
@@ -178,7 +193,12 @@ export const DailyRecordPage: React.FC = () => {
       };
 
       await saveMutation.mutateAsync(payload);
-      setFeedback({ type: 'success', message: 'Daily operational log successfully committed to database!' });
+      setFeedback({
+        type: 'success',
+        message: isCommitted
+          ? `Daily operational record for ${date} successfully updated in database!`
+          : `Daily operational log successfully committed to database!`,
+      });
     } catch (err: any) {
       setFeedback({ type: 'error', message: err.message || 'Failed to save daily record' });
     }
@@ -247,6 +267,9 @@ export const DailyRecordPage: React.FC = () => {
 
   // Bird Age Calculations (Requirements 6.1 - 6.2)
   const currentBirdAge = flock ? calculateBirdAge(date, flock.startDate) : { week: 1, day: 0, totalDays: 0, formatted: 'W01-D00' };
+
+  const isToday = date === getLocalDateString();
+  const isCommitted = Boolean(recordData?.hasExistingRecord);
   const dayNames = ['Sunday (00)', 'Monday (01)', 'Tuesday (02)', 'Wednesday (03)', 'Thursday (04)', 'Friday (05)', 'Saturday (06)'];
   const dayNameFormatted = dayNames[currentBirdAge.day] || `Day ${currentBirdAge.day}`;
 
@@ -255,17 +278,26 @@ export const DailyRecordPage: React.FC = () => {
       {/* Top Banner */}
       <div className="panel p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]">
         <div>
-          <div className="flex items-center gap-3">
-            <span className="font-mono text-sm font-bold bg-black text-white px-2 py-0.5">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-mono font-bold bg-black text-white px-2 py-0.5">
               {flock?.flockCode || '...'}
             </span>
             <h1 className="text-base font-bold uppercase tracking-wider">
               Daily Operational Entry
             </h1>
-            {flock?.status === 'closed' && (
+            {flock?.status === 'closed' ? (
               <span className="flex items-center gap-1 text-[10px] font-mono border border-black bg-white px-2 py-0.5 font-bold">
                 <Lock className="w-3 h-3" />
                 READ-ONLY (CLOSED)
+              </span>
+            ) : isCommitted ? (
+              <span className="flex items-center gap-1.5 text-[10px] font-mono border-2 border-black bg-black text-white px-2 py-0.5 font-bold uppercase shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                Committed Log {isToday ? '(Today)' : ''} • Update Mode
+              </span>
+            ) : (
+              <span className="flex items-center gap-1 text-[10px] font-mono border border-zinc-400 bg-zinc-100 text-zinc-600 px-2 py-0.5 font-bold uppercase">
+                New Daily Entry {isToday ? '(Today)' : ''} • Pending Commit
               </span>
             )}
           </div>
@@ -288,8 +320,10 @@ export const DailyRecordPage: React.FC = () => {
 
           <button
             type="button"
-            onClick={() => handleDateChange(new Date().toISOString().split('T')[0])}
-            className="border border-black px-2.5 py-1.5 text-xs font-mono uppercase hover:bg-zinc-100 font-semibold"
+            onClick={() => handleDateChange(getLocalDateString())}
+            className={`border border-black px-2.5 py-1.5 text-xs font-mono uppercase font-semibold transition-colors ${
+              isToday ? 'bg-black text-white' : 'hover:bg-zinc-100 bg-white'
+            }`}
           >
             Today
           </button>
@@ -310,7 +344,11 @@ export const DailyRecordPage: React.FC = () => {
               className="flex items-center gap-2 bg-black text-white px-5 py-1.5 text-xs font-bold uppercase tracking-wider hover:bg-zinc-800 transition-colors shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] disabled:opacity-50"
             >
               <Save className="w-4 h-4" />
-              <span>{saveMutation.isPending ? 'Saving...' : 'Save Record'}</span>
+              <span>
+                {saveMutation.isPending
+                  ? (isCommitted ? 'Updating...' : 'Saving...')
+                  : (isCommitted ? 'Update Record' : 'Save Record')}
+              </span>
             </button>
           )}
         </div>
@@ -1178,7 +1216,18 @@ export const DailyRecordPage: React.FC = () => {
 
       {/* Bottom Save Bar */}
       {flock?.status === 'active' && (
-        <div className="flex justify-end gap-4 p-4 border border-black bg-white shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+        <div className="flex justify-between items-center flex-wrap gap-4 p-4 border border-black bg-white shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+          <div className="text-xs font-mono text-zinc-600">
+            {isCommitted ? (
+              <span>
+                <strong className="text-black font-bold">Committed log active for {date}.</strong> Any modifications above will update this day's record.
+              </span>
+            ) : (
+              <span>
+                <strong className="text-black font-bold">Pending log entry for {date}.</strong> Fill in the daily numbers above and click commit to log for this day.
+              </span>
+            )}
+          </div>
           <button
             type="button"
             onClick={handleSave}
@@ -1186,7 +1235,11 @@ export const DailyRecordPage: React.FC = () => {
             className="flex items-center gap-2 bg-black text-white px-6 py-2.5 text-xs font-bold uppercase tracking-wider hover:bg-zinc-800 transition-colors shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] disabled:opacity-50"
           >
             <Save className="w-4 h-4" />
-            <span>{saveMutation.isPending ? 'Committing...' : 'Commit Daily Record for ' + date}</span>
+            <span>
+              {saveMutation.isPending
+                ? (isCommitted ? 'Updating Record...' : 'Committing to Database...')
+                : (isCommitted ? `Update Daily Record for ${date}` : `Commit Daily Record for ${date}`)}
+            </span>
           </button>
         </div>
       )}
