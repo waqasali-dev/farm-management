@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { Redis as UpstashRedis } from '@upstash/redis';
 import { Redis as IORedis } from 'ioredis';
 import { env } from '../config/env.js';
@@ -254,3 +255,183 @@ export async function getOrSetCache<T>(
   }
   return fresh;
 }
+
+/**
+ * In-memory fallback lock store for when Redis is disconnected/offline
+ */
+interface MemoryLockEntry {
+  token: string;
+  expiresAt: number;
+}
+const memoryLocks = new Map<string, MemoryLockEntry>();
+
+/**
+ * Periodically purge expired memory locks
+ */
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, lock] of memoryLocks.entries()) {
+    if (lock.expiresAt <= now) {
+      memoryLocks.delete(key);
+    }
+  }
+}, 30000).unref();
+
+/**
+ * Distributed Lock: Acquire lock using atomic SET key token NX EX ttlSeconds.
+ * Returns { acquired: true, token } if lock was acquired.
+ * Returns { acquired: false, token: '' } if already held by another in-flight request.
+ */
+export async function acquireLock(
+  key: string,
+  ttlSeconds = 15
+): Promise<{ acquired: boolean; token: string }> {
+  const token = crypto.randomUUID();
+
+  if (isRedisAvailable) {
+    try {
+      if (upstashClient) {
+        // Upstash Redis REST: set(key, value, { nx: true, ex: ttlSeconds })
+        const res = await upstashClient.set(key, token, { nx: true, ex: ttlSeconds });
+        const acquired = Boolean(res);
+        if (acquired) {
+          console.log(`[Redis Lock ACQUIRED] key: ${key} (ttl: ${ttlSeconds}s)`);
+        } else {
+          console.warn(`[Redis Lock CONCURRENT_BLOCKED] key: ${key} is already locked`);
+        }
+        return { acquired, token: acquired ? token : '' };
+      }
+
+      if (ioRedisClient) {
+        // ioredis: set(key, value, 'EX', ttlSeconds, 'NX')
+        const res = await ioRedisClient.set(key, token, 'EX', ttlSeconds, 'NX');
+        const acquired = res === 'OK';
+        if (acquired) {
+          console.log(`[Redis Lock ACQUIRED] key: ${key} (ttl: ${ttlSeconds}s)`);
+        } else {
+          console.warn(`[Redis Lock CONCURRENT_BLOCKED] key: ${key} is already locked`);
+        }
+        return { acquired, token: acquired ? token : '' };
+      }
+    } catch (err: any) {
+      console.warn(`[Redis Lock] Redis error: ${err.message}. Using memory lock fallback.`);
+    }
+  }
+
+  // In-memory fallback
+  const now = Date.now();
+  const existing = memoryLocks.get(key);
+  if (existing && existing.expiresAt > now) {
+    console.warn(`[Memory Lock CONCURRENT_BLOCKED] key: ${key} is already locked`);
+    return { acquired: false, token: '' };
+  }
+
+  memoryLocks.set(key, { token, expiresAt: now + ttlSeconds * 1000 });
+  console.log(`[Memory Lock ACQUIRED] key: ${key} (ttl: ${ttlSeconds}s)`);
+  return { acquired: true, token };
+}
+
+/**
+ * Distributed Lock: Safely release lock if the token matches.
+ * Optionally leaves a short cooldown key to prevent immediate rapid re-submissions.
+ */
+export async function releaseLock(
+  key: string,
+  token: string,
+  cooldownSeconds = 0
+): Promise<boolean> {
+  if (!token) return false;
+
+  if (isRedisAvailable) {
+    try {
+      if (upstashClient) {
+        const current = await upstashClient.get<string>(key);
+        if (current === token) {
+          if (cooldownSeconds > 0) {
+            await upstashClient.set(key, 'COOLDOWN', { ex: cooldownSeconds });
+          } else {
+            await upstashClient.del(key);
+          }
+          console.log(`[Redis Lock RELEASED] key: ${key}`);
+          return true;
+        }
+        return false;
+      }
+
+      if (ioRedisClient) {
+        const current = await ioRedisClient.get(key);
+        if (current === token) {
+          if (cooldownSeconds > 0) {
+            await ioRedisClient.set(key, 'COOLDOWN', 'EX', cooldownSeconds);
+          } else {
+            await ioRedisClient.del(key);
+          }
+          console.log(`[Redis Lock RELEASED] key: ${key}`);
+          return true;
+        }
+        return false;
+      }
+    } catch (err: any) {
+      console.warn(`[Redis Lock Release ERROR] ${err.message}`);
+    }
+  }
+
+  // Memory fallback
+  const existing = memoryLocks.get(key);
+  if (existing && existing.token === token) {
+    if (cooldownSeconds > 0) {
+      memoryLocks.set(key, { token: 'COOLDOWN', expiresAt: Date.now() + cooldownSeconds * 1000 });
+    } else {
+      memoryLocks.delete(key);
+    }
+    console.log(`[Memory Lock RELEASED] key: ${key}`);
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Distributed Lock: Check if a lock is currently active
+ */
+export async function isLocked(key: string): Promise<boolean> {
+  if (isRedisAvailable) {
+    try {
+      if (upstashClient) {
+        const val = await upstashClient.get(key);
+        return val !== null && val !== undefined;
+      }
+      if (ioRedisClient) {
+        const val = await ioRedisClient.get(key);
+        return val !== null && val !== undefined;
+      }
+    } catch {
+      // Fall through to memory check
+    }
+  }
+  const existing = memoryLocks.get(key);
+  return !!(existing && existing.expiresAt > Date.now());
+}
+
+/**
+ * Distributed Lock: Higher-order wrapper to run an asynchronous action safely under a lock
+ */
+export async function withLock<T>(
+  key: string,
+  fn: () => Promise<T>,
+  ttlSeconds = 15,
+  cooldownSeconds = 0
+): Promise<T> {
+  const { acquired, token } = await acquireLock(key, ttlSeconds);
+  if (!acquired) {
+    const error: any = new Error('A request for this operation is currently being processed. Please wait for it to complete.');
+    error.statusCode = 429;
+    error.code = 'CONCURRENT_REQUEST_LOCKED';
+    throw error;
+  }
+  try {
+    return await fn();
+  } finally {
+    await releaseLock(key, token, cooldownSeconds);
+  }
+}
+

@@ -10,6 +10,7 @@ import { dashboardRoutes } from './modules/dashboard/routes.js';
 import { dailyRecordRoutes } from './modules/daily-records/routes.js';
 import { reportRoutes } from './modules/reports/routes.js';
 import { medicineRoutes } from './modules/medicines/routes.js';
+import { requestLockPlugin } from './plugins/request-lock.js';
 
 export async function buildApp() {
   const app = Fastify({
@@ -38,6 +39,12 @@ export async function buildApp() {
     origin: true,
     methods: ['GET', 'POST', 'PATCH', 'DELETE', 'PUT', 'OPTIONS'],
     credentials: true,
+  });
+
+  // Distributed Redis Request Lock (Idempotency & Concurrent Duplicate Request Prevention)
+  await app.register(requestLockPlugin, {
+    ttlSeconds: 15,
+    cooldownSeconds: 1,
   });
 
   // Swagger Documentation
