@@ -16,6 +16,7 @@
     "build:backend": "npm run build --workspace=backend",
     "test": "npm run test --workspaces",
     "typecheck": "npm run typecheck --workspaces",
+    "db:apply-schema": "npm run db:apply-schema --workspace=backend",
     "db:setup": "npm run db:setup --workspace=backend",
     "db:generate": "npm run db:generate --workspace=backend",
     "db:migrate": "npm run db:migrate --workspace=backend",

@@ -10,6 +10,7 @@
     "start": "node dist/server.js",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
+    "db:apply-schema": "tsx src/db/apply-schema.ts",
     "db:setup": "tsx src/db/setup-db.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/db/migrate.ts",
