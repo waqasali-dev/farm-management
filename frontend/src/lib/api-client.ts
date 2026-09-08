@@ -45,6 +45,7 @@ export const api = {
     isRunningFlock?: boolean;
     openingBalances?: {
       cumulativeMortality?: number;
+      totalReceivedFeedBags?: number;
       remainingFeedBags?: number;
       remainingEggPeti?: number;
       remainingEggTrays?: number;

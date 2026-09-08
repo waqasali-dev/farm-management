@@ -33,6 +33,7 @@ export const CreateFlockModal: React.FC<CreateFlockModalProps> = ({
 
   // Running Flock Opening Balances
   const [cumulativeMortality, setCumulativeMortality] = useState<number | ''>(0);
+  const [totalReceivedFeedBags, setTotalReceivedFeedBags] = useState<number | ''>(0);
   const [remainingFeedBags, setRemainingFeedBags] = useState<number | ''>(0);
   const [remainingEggPeti, setRemainingEggPeti] = useState<number | ''>(0);
   const [remainingEggTrays, setRemainingEggTrays] = useState<number | ''>(0);
@@ -112,6 +113,16 @@ export const CreateFlockModal: React.FC<CreateFlockModalProps> = ({
         setError('Remaining feed bags cannot be negative');
         return;
       }
+      if (Number(totalReceivedFeedBags) < 0) {
+        setError('Total received feed bags cannot be negative');
+        return;
+      }
+      const numTotalReceived = Number(totalReceivedFeedBags) || 0;
+      const numRemainingFeed = Number(remainingFeedBags) || 0;
+      if (numTotalReceived > 0 && numRemainingFeed > numTotalReceived) {
+        setError(`Already present remaining feed (${numRemainingFeed} bags) cannot exceed total received feed (${numTotalReceived} bags)`);
+        return;
+      }
       if (Number(remainingDieselLiters) < 0) {
         setError('Remaining diesel cannot be negative');
         return;
@@ -131,6 +142,7 @@ export const CreateFlockModal: React.FC<CreateFlockModalProps> = ({
         isRunningFlock: mode === 'running',
         openingBalances: mode === 'running' ? {
           cumulativeMortality: Number(cumulativeMortality) || 0,
+          totalReceivedFeedBags: Number(totalReceivedFeedBags) || 0,
           remainingFeedBags: Number(remainingFeedBags) || 0,
           remainingEggPeti: eggTrackingEnabled ? (Number(remainingEggPeti) || 0) : 0,
           remainingEggTrays: eggTrackingEnabled ? (Number(remainingEggTrays) || 0) : 0,
@@ -147,6 +159,7 @@ export const CreateFlockModal: React.FC<CreateFlockModalProps> = ({
       setInitialBirds(10000);
       setEggTrackingEnabled(false);
       setCumulativeMortality(0);
+      setTotalReceivedFeedBags(0);
       setRemainingFeedBags(0);
       setRemainingEggPeti(0);
       setRemainingEggTrays(0);
@@ -373,24 +386,73 @@ export const CreateFlockModal: React.FC<CreateFlockModalProps> = ({
               </div>
 
               {/* Feed Inventory */}
-              <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider mb-1 text-black">
-                  Already Present Remaining Feed (Bags)
-                </label>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="number"
-                    min="0"
-                    step="1"
-                    value={remainingFeedBags}
-                    onChange={(e) => setRemainingFeedBags(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
-                    className="w-full border border-black px-3 py-2 text-xs font-mono bg-white focus:outline-none focus:ring-2 focus:ring-black"
-                    placeholder="e.g. 250"
-                  />
-                  <span className="text-xs font-mono text-zinc-600 whitespace-nowrap">
-                    = {(Number(remainingFeedBags || 0) * 50).toLocaleString()} kg
-                  </span>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-[11px] font-bold uppercase tracking-wider mb-1 text-black">
+                    Total Received Feed (Bags) Till Now
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={totalReceivedFeedBags}
+                      onChange={(e) => setTotalReceivedFeedBags(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
+                      className="w-full border border-black px-3 py-2 text-xs font-mono bg-white focus:outline-none focus:ring-2 focus:ring-black"
+                      placeholder="e.g. 500"
+                    />
+                    <span className="text-xs font-mono text-zinc-600 whitespace-nowrap">
+                      = {(Number(totalReceivedFeedBags || 0) * 50).toLocaleString()} kg total
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-zinc-500 font-mono mt-0.5">
+                    Cumulative bags delivered/purchased for this flock from start date up to cutover date.
+                  </p>
                 </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold uppercase tracking-wider mb-1 text-black">
+                    Already Present Remaining Feed (Bags) *
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={remainingFeedBags}
+                      onChange={(e) => setRemainingFeedBags(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
+                      className="w-full border border-black px-3 py-2 text-xs font-mono bg-white focus:outline-none focus:ring-2 focus:ring-black"
+                      placeholder="e.g. 100"
+                    />
+                    <span className="text-xs font-mono text-zinc-600 whitespace-nowrap">
+                      = {(Number(remainingFeedBags || 0) * 50).toLocaleString()} kg in stock
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-zinc-500 font-mono mt-0.5">
+                    Physical feed bags currently present in farm warehouse / shed storage.
+                  </p>
+                </div>
+
+                {/* Live Computed Feed Balance Insight */}
+                {(Number(totalReceivedFeedBags) > 0 || Number(remainingFeedBags) > 0) && (
+                  <div className="p-2.5 bg-black text-white border border-black text-[11px] font-mono flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                    <span className="text-zinc-300">
+                      Computed Past Feed Consumed:
+                    </span>
+                    <span className="font-bold text-white">
+                      {Math.max(
+                        0,
+                        ((Number(totalReceivedFeedBags) || 0) > 0 ? (Number(totalReceivedFeedBags) || 0) : (Number(remainingFeedBags) || 0)) -
+                          (Number(remainingFeedBags) || 0)
+                      ).toLocaleString()} Bags
+                      {' '}({(Math.max(
+                        0,
+                        ((Number(totalReceivedFeedBags) || 0) > 0 ? (Number(totalReceivedFeedBags) || 0) : (Number(remainingFeedBags) || 0)) -
+                          (Number(remainingFeedBags) || 0)
+                      ) * 50).toLocaleString()} kg used prior)
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Egg Stock (if enabled) */}

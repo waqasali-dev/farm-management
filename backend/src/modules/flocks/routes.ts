@@ -14,6 +14,7 @@ const createFlockSchema = z.object({
   isRunningFlock: z.boolean().optional().default(false),
   openingBalances: z.object({
     cumulativeMortality: z.number().int().min(0).default(0),
+    totalReceivedFeedBags: z.number().int().min(0).optional().default(0),
     remainingFeedBags: z.number().int().min(0).default(0),
     remainingEggPeti: z.number().int().min(0).default(0),
     remainingEggTrays: z.number().int().min(0).default(0),
@@ -130,6 +131,20 @@ export const flockRoutes: FastifyPluginAsync = async (fastify) => {
       return errorResponse('Cumulative mortality cannot exceed or equal initial birds placed.', 'VALIDATION_ERROR');
     }
 
+    if (
+      isRunningFlock &&
+      openingBalances &&
+      openingBalances.totalReceivedFeedBags &&
+      openingBalances.totalReceivedFeedBags > 0 &&
+      openingBalances.remainingFeedBags > openingBalances.totalReceivedFeedBags
+    ) {
+      reply.status(400);
+      return errorResponse(
+        `Already present remaining feed bags (${openingBalances.remainingFeedBags}) cannot exceed total received feed bags (${openingBalances.totalReceivedFeedBags}).`,
+        'VALIDATION_ERROR'
+      );
+    }
+
     if (isDatabaseConnected()) {
       try {
         // Fetch or create default farm
@@ -179,14 +194,19 @@ export const flockRoutes: FastifyPluginAsync = async (fastify) => {
               });
             }
 
-            // 2. Remaining feed bags
-            if (openingBalances.remainingFeedBags > 0) {
+            // 2. Remaining feed bags & total received bags till now
+            const totalReceivedFeed = (openingBalances.totalReceivedFeedBags && openingBalances.totalReceivedFeedBags > 0)
+              ? openingBalances.totalReceivedFeedBags
+              : openingBalances.remainingFeedBags;
+            const priorUsedFeed = Math.max(0, totalReceivedFeed - openingBalances.remainingFeedBags);
+
+            if (totalReceivedFeed > 0 || openingBalances.remainingFeedBags > 0) {
               await tx.insert(schema.feedDailyRecords).values({
                 farmId: farm.id,
                 flockId: newFlock.id,
                 date: baselineDate,
-                arrivalBags: openingBalances.remainingFeedBags,
-                usedBags: 0,
+                arrivalBags: totalReceivedFeed,
+                usedBags: priorUsedFeed,
               });
             }
 
@@ -267,14 +287,19 @@ export const flockRoutes: FastifyPluginAsync = async (fastify) => {
           updatedAt: new Date(),
         });
       }
-      if (openingBalances.remainingFeedBags > 0) {
+      const totalReceivedFeed = (openingBalances.totalReceivedFeedBags && openingBalances.totalReceivedFeedBags > 0)
+        ? openingBalances.totalReceivedFeedBags
+        : openingBalances.remainingFeedBags;
+      const priorUsedFeed = Math.max(0, totalReceivedFeed - openingBalances.remainingFeedBags);
+
+      if (totalReceivedFeed > 0 || openingBalances.remainingFeedBags > 0) {
         mockStore.feedRecords.push({
           id: crypto.randomUUID(),
           farmId: newFlock.farmId,
           flockId: newFlock.id,
           date: baselineDate,
-          arrivalBags: openingBalances.remainingFeedBags,
-          usedBags: 0,
+          arrivalBags: totalReceivedFeed,
+          usedBags: priorUsedFeed,
           createdAt: new Date(),
           updatedAt: new Date(),
         });
