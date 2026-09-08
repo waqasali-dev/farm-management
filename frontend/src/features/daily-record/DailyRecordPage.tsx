@@ -276,7 +276,7 @@ export const DailyRecordPage: React.FC = () => {
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
       {/* Top Banner */}
-      <div className="panel p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]">
+      <div className="panel p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]">
         <div>
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs font-mono font-bold bg-black text-white px-2 py-0.5">
@@ -307,21 +307,21 @@ export const DailyRecordPage: React.FC = () => {
         </div>
 
         {/* Date Selector & Save CTA */}
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className="flex items-center gap-2 border border-black px-3 py-1.5 bg-white">
-            <Calendar className="w-4 h-4 text-black" />
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap w-full md:w-auto">
+          <div className="flex items-center gap-2 border border-black px-2.5 sm:px-3 py-1.5 bg-white flex-1 sm:flex-initial justify-between sm:justify-start">
+            <Calendar className="w-4 h-4 text-black shrink-0" />
             <input
               type="date"
               value={date}
               onChange={(e) => handleDateChange(e.target.value)}
-              className="text-xs font-mono font-bold uppercase focus:outline-none cursor-pointer bg-transparent"
+              className="text-xs font-mono font-bold uppercase focus:outline-none cursor-pointer bg-transparent w-full sm:w-auto"
             />
           </div>
 
           <button
             type="button"
             onClick={() => handleDateChange(getLocalDateString())}
-            className={`border border-black px-2.5 py-1.5 text-xs font-mono uppercase font-semibold transition-colors ${
+            className={`border border-black px-2.5 py-1.5 text-xs font-mono uppercase font-semibold transition-colors shrink-0 ${
               isToday ? 'bg-black text-white' : 'hover:bg-zinc-100 bg-white'
             }`}
           >
@@ -331,7 +331,7 @@ export const DailyRecordPage: React.FC = () => {
           <button
             type="button"
             onClick={() => refetch()}
-            className="border border-black p-2 hover:bg-zinc-100"
+            className="border border-black p-2 hover:bg-zinc-100 shrink-0"
             title="Refresh record"
           >
             <RefreshCw className={`w-3.5 h-3.5 text-black ${isRecordFetching ? 'animate-spin' : ''}`} />
@@ -341,7 +341,7 @@ export const DailyRecordPage: React.FC = () => {
             <button
               onClick={handleSave}
               disabled={saveMutation.isPending}
-              className="flex items-center gap-2 bg-black text-white px-5 py-1.5 text-xs font-bold uppercase tracking-wider hover:bg-zinc-800 transition-colors shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] disabled:opacity-50"
+              className="flex items-center justify-center gap-2 bg-black text-white px-4 sm:px-5 py-2 sm:py-1.5 text-xs font-bold uppercase tracking-wider hover:bg-zinc-800 transition-colors shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] disabled:opacity-50 w-full sm:w-auto shrink-0"
             >
               <Save className="w-4 h-4" />
               <span>
@@ -377,14 +377,14 @@ export const DailyRecordPage: React.FC = () => {
 
       {/* Option to start tracking eggs if disabled */}
       {!flock?.eggTrackingEnabled && flock?.status === 'active' && (
-        <div className="panel p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-2 border-black bg-zinc-50 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+        <div className="panel p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-2 border-black bg-zinc-50 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
           <div className="flex items-start sm:items-center gap-3">
             <div className="w-8 h-8 bg-black text-white flex items-center justify-center font-bold shrink-0">
               <Egg className="w-4 h-4 text-white" />
             </div>
             <div>
-              <div className="text-xs font-bold uppercase tracking-wider text-black flex items-center gap-2">
-                <span>Egg Production Tracking is Currently Disabled</span>
+              <div className="text-xs font-bold uppercase tracking-wider text-black flex items-center gap-2 flex-wrap">
+                <span>Egg Production Tracking is Disabled</span>
                 <span className="text-[10px] font-mono font-normal border border-black bg-white px-1.5 py-0.2">Point of Lay</span>
               </div>
               <p className="text-[11px] font-mono text-zinc-600 mt-0.5">
@@ -393,7 +393,7 @@ export const DailyRecordPage: React.FC = () => {
             </div>
           </div>
 
-          <label className="flex items-center gap-2.5 cursor-pointer border-2 border-black bg-white px-4 py-2 text-xs font-mono font-bold uppercase hover:bg-zinc-100 shrink-0 select-none shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-transform active:translate-x-0.5 active:translate-y-0.5">
+          <label className="flex items-center justify-center gap-2.5 cursor-pointer border-2 border-black bg-white px-4 py-2 text-xs font-mono font-bold uppercase hover:bg-zinc-100 w-full sm:w-auto shrink-0 select-none shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-transform active:translate-x-0.5 active:translate-y-0.5">
             <input
               type="checkbox"
               checked={false}
@@ -406,8 +406,8 @@ export const DailyRecordPage: React.FC = () => {
         </div>
       )}
 
-      {/* Form Tabs Navigation */}
-      <div className="border-b border-black flex flex-wrap gap-1 bg-white p-1">
+      {/* Form Tabs Navigation (Horizontal swipeable on mobile) */}
+      <div className="border-b border-black flex flex-nowrap overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden sm:flex-wrap gap-1 bg-white p-1">
         {[
           { key: 'birds', label: '1. Birds & Weather' },
           { key: 'feed', label: '2. Feed Inventory' },
@@ -420,7 +420,7 @@ export const DailyRecordPage: React.FC = () => {
           <button
             key={t.key}
             onClick={() => setActiveTab(t.key as any)}
-            className={`px-4 py-2 text-xs font-mono uppercase font-bold transition-all border ${
+            className={`px-3 sm:px-4 py-2 text-xs font-mono uppercase font-bold transition-all border whitespace-nowrap shrink-0 ${
               activeTab === t.key
                 ? 'bg-black text-white border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'
                 : 'text-zinc-600 border-transparent hover:text-black hover:bg-zinc-100'
@@ -432,7 +432,7 @@ export const DailyRecordPage: React.FC = () => {
       </div>
 
       {/* Main Tab Content */}
-      <div className="panel p-6 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]">
+      <div className="panel p-4 sm:p-6 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]">
         {isRecordLoading ? (
           <div className="py-12 text-center text-xs font-mono text-zinc-500">
             Loading daily record from database...
@@ -757,7 +757,7 @@ export const DailyRecordPage: React.FC = () => {
                   ) : (
                     <div className="space-y-2">
                       {eggUsage.map((u, idx) => (
-                        <div key={idx} className="flex items-center gap-3 border border-zinc-200 p-2 bg-zinc-50">
+                        <div key={idx} className="flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-3 border border-zinc-200 p-2.5 bg-zinc-50">
                           <select
                             value={u.type}
                             disabled={flock?.status === 'closed'}
@@ -766,7 +766,7 @@ export const DailyRecordPage: React.FC = () => {
                               updated[idx].type = e.target.value as any;
                               setEggUsage(updated);
                             }}
-                            className="border border-black px-2 py-1 text-xs font-mono uppercase bg-white"
+                            className="w-full sm:w-auto border border-black px-2 py-1.5 text-xs font-mono uppercase bg-white"
                           >
                             <option value="gift-use">gift-use</option>
                             <option value="conveyor-waste">conveyor-waste</option>
@@ -807,7 +807,7 @@ export const DailyRecordPage: React.FC = () => {
                             <span>Trays</span>
                           </div>
 
-                          <span className="text-[11px] font-mono text-zinc-500">
+                          <span className="text-[11px] font-mono text-zinc-500 whitespace-nowrap">
                             = {petiTraysToEggs(u.peti, u.trays)} eggs
                           </span>
 
@@ -1108,7 +1108,7 @@ export const DailyRecordPage: React.FC = () => {
                     ) : (
                       <div className="space-y-2">
                         {medicineList.map((m, idx) => (
-                          <div key={idx} className="flex items-center gap-3 border border-zinc-300 p-2 bg-white">
+                          <div key={idx} className="flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-3 border border-zinc-300 p-2.5 bg-white">
                             <select
                               value={m.medicineId}
                               disabled={flock?.status === 'closed'}
@@ -1122,7 +1122,7 @@ export const DailyRecordPage: React.FC = () => {
                                 };
                                 setMedicineList(updated);
                               }}
-                              className="border border-black px-2 py-1 text-xs font-mono uppercase bg-white flex-1"
+                              className="w-full sm:flex-1 border border-black px-2 py-1.5 text-xs font-mono uppercase bg-white"
                             >
                               {medicinesMaster.map((med) => (
                                 <option key={med.id} value={med.id}>
@@ -1153,7 +1153,7 @@ export const DailyRecordPage: React.FC = () => {
                               <button
                                 type="button"
                                 onClick={() => setMedicineList(medicineList.filter((_, i) => i !== idx))}
-                                className="text-zinc-500 hover:text-black p-1"
+                                className="ml-auto text-zinc-500 hover:text-black p-1"
                               >
                                 <Trash2 className="w-4 h-4" />
                               </button>
@@ -1216,7 +1216,7 @@ export const DailyRecordPage: React.FC = () => {
 
       {/* Bottom Save Bar */}
       {flock?.status === 'active' && (
-        <div className="flex justify-between items-center flex-wrap gap-4 p-4 border border-black bg-white shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+        <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 sm:gap-4 p-4 border border-black bg-white shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
           <div className="text-xs font-mono text-zinc-600">
             {isCommitted ? (
               <span>
@@ -1232,7 +1232,7 @@ export const DailyRecordPage: React.FC = () => {
             type="button"
             onClick={handleSave}
             disabled={saveMutation.isPending}
-            className="flex items-center gap-2 bg-black text-white px-6 py-2.5 text-xs font-bold uppercase tracking-wider hover:bg-zinc-800 transition-colors shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] disabled:opacity-50"
+            className="w-full sm:w-auto justify-center flex items-center gap-2 bg-black text-white px-6 py-2.5 text-xs font-bold uppercase tracking-wider hover:bg-zinc-800 transition-colors shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] disabled:opacity-50 active:translate-x-0.5 active:translate-y-0.5 shrink-0"
           >
             <Save className="w-4 h-4" />
             <span>

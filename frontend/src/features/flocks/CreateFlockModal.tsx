@@ -157,10 +157,10 @@ export const CreateFlockModal: React.FC<CreateFlockModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 overflow-y-auto">
-      <div className="bg-white border-2 border-black w-full max-w-2xl shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] my-8">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-2 sm:p-4 overflow-y-auto">
+      <div className="bg-white border-2 border-black w-full max-w-2xl shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] sm:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] my-4 sm:my-8 max-h-[92vh] flex flex-col">
         {/* Modal Header */}
-        <div className="bg-black text-white px-6 py-4 flex items-center justify-between border-b border-black">
+        <div className="bg-black text-white px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between border-b border-black shrink-0">
           <div>
             <h2 className="text-sm font-bold uppercase tracking-wider">
               {mode === 'running' ? 'Onboard Already Running Flock' : 'Create New Flock'}
@@ -181,11 +181,11 @@ export const CreateFlockModal: React.FC<CreateFlockModalProps> = ({
         </div>
 
         {/* Mode Selector Tabs */}
-        <div className="border-b border-black bg-zinc-100 p-2 flex gap-2">
+        <div className="border-b border-black bg-zinc-100 p-2 flex flex-col sm:flex-row gap-2 shrink-0">
           <button
             type="button"
             onClick={() => handleModeChange('fresh')}
-            className={`flex-1 py-2 text-xs font-mono font-bold uppercase tracking-wider border transition-all ${
+            className={`flex-1 py-2 text-xs font-mono font-bold uppercase tracking-wider border transition-all text-center ${
               mode === 'fresh'
                 ? 'bg-black text-white border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'
                 : 'bg-white text-zinc-600 border-zinc-300 hover:border-black'
@@ -196,7 +196,7 @@ export const CreateFlockModal: React.FC<CreateFlockModalProps> = ({
           <button
             type="button"
             onClick={() => handleModeChange('running')}
-            className={`flex-1 py-2 text-xs font-mono font-bold uppercase tracking-wider border transition-all ${
+            className={`flex-1 py-2 text-xs font-mono font-bold uppercase tracking-wider border transition-all text-center ${
               mode === 'running'
                 ? 'bg-black text-white border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'
                 : 'bg-white text-zinc-600 border-zinc-300 hover:border-black'
@@ -207,7 +207,7 @@ export const CreateFlockModal: React.FC<CreateFlockModalProps> = ({
         </div>
 
         {/* Modal Body Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-5 max-h-[75vh] overflow-y-auto">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4 sm:space-y-5 overflow-y-auto flex-1">
           {error && (
             <div className="p-3 bg-zinc-100 border border-black text-black text-xs font-mono flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0" />
@@ -472,18 +472,18 @@ export const CreateFlockModal: React.FC<CreateFlockModalProps> = ({
           )}
 
           {/* Modal Actions */}
-          <div className="flex justify-end gap-3 pt-3 border-t border-zinc-200">
+          <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3 pt-3 border-t border-zinc-200 shrink-0">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-semibold uppercase tracking-wider border border-black hover:bg-zinc-100 transition-colors"
+              className="w-full sm:w-auto text-center px-4 py-2.5 sm:py-2 text-xs font-semibold uppercase tracking-wider border border-black hover:bg-zinc-100 transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={createFlockMutation.isPending}
-              className="px-6 py-2 text-xs font-bold uppercase tracking-wider bg-black text-white border border-black hover:bg-zinc-800 transition-colors shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] disabled:opacity-50"
+              className="w-full sm:w-auto text-center px-6 py-2.5 sm:py-2 text-xs font-bold uppercase tracking-wider bg-black text-white border border-black hover:bg-zinc-800 transition-colors shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] disabled:opacity-50 active:translate-x-0.5 active:translate-y-0.5"
             >
               {createFlockMutation.isPending
                 ? 'Onboarding...'

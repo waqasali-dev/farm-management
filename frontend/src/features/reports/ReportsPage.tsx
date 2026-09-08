@@ -42,10 +42,10 @@ export const ReportsPage: React.FC = () => {
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       {/* Report Header */}
-      <div className="panel p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]">
+      <div className="panel p-4 sm:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]">
         <div>
           <div className="flex items-center gap-2">
-            <FileSpreadsheet className="w-5 h-5 text-black" />
+            <FileSpreadsheet className="w-5 h-5 text-black shrink-0" />
             <h1 className="text-base font-bold uppercase tracking-wider">
               Flock Audit & Production Reports
             </h1>
@@ -55,9 +55,9 @@ export const ReportsPage: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-3 flex-wrap">
-          {/* Report Type Selector */}
-          <div className="border border-black p-0.5 flex flex-wrap bg-zinc-100 text-xs font-mono">
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap w-full md:w-auto">
+          {/* Report Type Selector (Horizontal swipeable on mobile) */}
+          <div className="border border-black p-0.5 flex flex-nowrap overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden sm:flex-wrap bg-zinc-100 text-xs font-mono max-w-full">
             {[
               { id: 'summary', label: 'Summary' },
               { id: 'mortality', label: 'Mortality' },
@@ -70,7 +70,7 @@ export const ReportsPage: React.FC = () => {
               <button
                 key={t.id}
                 onClick={() => setReportType(t.id as any)}
-                className={`px-3 py-1 uppercase font-semibold transition-all ${
+                className={`px-3 py-1.5 sm:py-1 uppercase font-semibold transition-all whitespace-nowrap shrink-0 ${
                   reportType === t.id ? 'bg-black text-white' : 'text-zinc-600 hover:text-black'
                 }`}
               >
@@ -79,21 +79,23 @@ export const ReportsPage: React.FC = () => {
             ))}
           </div>
 
-          <button
-            onClick={() => refetch()}
-            className="border border-black p-2 hover:bg-zinc-100"
-            title="Refresh report"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 text-black ${isFetching ? 'animate-spin' : ''}`} />
-          </button>
+          <div className="flex items-center gap-2 ml-auto sm:ml-0">
+            <button
+              onClick={() => refetch()}
+              className="border border-black p-2 hover:bg-zinc-100"
+              title="Refresh report"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 text-black ${isFetching ? 'animate-spin' : ''}`} />
+            </button>
 
-          <button
-            onClick={handlePrint}
-            className="flex items-center gap-1.5 border border-black bg-white px-3 py-1.5 text-xs font-mono font-bold uppercase hover:bg-zinc-100"
-          >
-            <Printer className="w-3.5 h-3.5" />
-            <span>Print / PDF</span>
-          </button>
+            <button
+              onClick={handlePrint}
+              className="flex items-center gap-1.5 border border-black bg-white px-3 py-1.5 text-xs font-mono font-bold uppercase hover:bg-zinc-100"
+            >
+              <Printer className="w-3.5 h-3.5" />
+              <span>Print / PDF</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -113,7 +115,7 @@ export const ReportsPage: React.FC = () => {
           ) : (
             <>
               {reportType === 'summary' && (
-                <table className="w-full text-left border-collapse text-xs font-mono">
+                <table className="w-full text-left border-collapse text-xs font-mono min-w-[780px]">
                   <thead>
                     <tr className="border-b border-black bg-zinc-100 text-[10px] uppercase text-zinc-600">
                       <th className="py-2.5 px-3">Date</th>
@@ -164,7 +166,7 @@ export const ReportsPage: React.FC = () => {
               )}
 
               {reportType === 'mortality' && (
-                <table className="w-full text-left border-collapse text-xs font-mono">
+                <table className="w-full text-left border-collapse text-xs font-mono min-w-[650px]">
                   <thead>
                     <tr className="border-b border-black bg-zinc-100 text-[10px] uppercase text-zinc-600">
                       <th className="py-2.5 px-3">Date</th>
@@ -205,7 +207,7 @@ export const ReportsPage: React.FC = () => {
               )}
 
               {reportType === 'feed' && (
-                <table className="w-full text-left border-collapse text-xs font-mono">
+                <table className="w-full text-left border-collapse text-xs font-mono min-w-[600px]">
                   <thead>
                     <tr className="border-b border-black bg-zinc-100 text-[10px] uppercase text-zinc-600">
                       <th className="py-2.5 px-3">Date</th>
@@ -242,7 +244,7 @@ export const ReportsPage: React.FC = () => {
               )}
 
               {reportType === 'eggs' && (
-                <table className="w-full text-left border-collapse text-xs font-mono">
+                <table className="w-full text-left border-collapse text-xs font-mono min-w-[900px]">
                   <thead>
                     <tr className="border-b border-black bg-zinc-100 text-[10px] uppercase text-zinc-600">
                       <th className="py-2.5 px-3">Date</th>
@@ -289,7 +291,7 @@ export const ReportsPage: React.FC = () => {
               )}
 
               {reportType === 'diesel' && (
-                <table className="w-full text-left border-collapse text-xs font-mono">
+                <table className="w-full text-left border-collapse text-xs font-mono min-w-[500px]">
                   <thead>
                     <tr className="border-b border-black bg-zinc-100 text-[10px] uppercase text-zinc-600">
                       <th className="py-2.5 px-3">Date</th>
@@ -320,7 +322,7 @@ export const ReportsPage: React.FC = () => {
               )}
 
               {reportType === 'weight' && (
-                <table className="w-full text-left border-collapse text-xs font-mono">
+                <table className="w-full text-left border-collapse text-xs font-mono min-w-[600px]">
                   <thead>
                     <tr className="border-b border-black bg-zinc-100 text-[10px] uppercase text-zinc-600">
                       <th className="py-2.5 px-3">Date</th>
@@ -355,7 +357,7 @@ export const ReportsPage: React.FC = () => {
               )}
 
               {reportType === 'health' && (
-                <table className="w-full text-left border-collapse text-xs font-mono">
+                <table className="w-full text-left border-collapse text-xs font-mono min-w-[700px]">
                   <thead>
                     <tr className="border-b border-black bg-zinc-100 text-[10px] uppercase text-zinc-600">
                       <th className="py-2.5 px-3">Date</th>

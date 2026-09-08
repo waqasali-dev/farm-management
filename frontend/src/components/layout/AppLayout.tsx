@@ -12,6 +12,7 @@ export const AppLayout: React.FC = () => {
 
   const [activeFlock, setActiveFlock] = useState<Flock | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [searchParams] = useSearchParams();
 
   // Synchronize active flock from URL, localStorage, or first active flock
@@ -48,12 +49,17 @@ export const AppLayout: React.FC = () => {
         onSelectFlock={handleSelectFlock}
         health={health}
         onOpenCreateModal={() => setIsCreateModalOpen(true)}
+        onToggleMobileMenu={() => setIsMobileMenuOpen((prev) => !prev)}
       />
 
-      <div className="flex-1 flex overflow-hidden min-h-0">
-        <Sidebar activeFlock={activeFlock} />
+      <div className="flex-1 flex overflow-hidden min-h-0 relative">
+        <Sidebar
+          activeFlock={activeFlock}
+          isOpen={isMobileMenuOpen}
+          onClose={() => setIsMobileMenuOpen(false)}
+        />
 
-        <main className="flex-1 overflow-y-auto p-6 md:p-8 bg-zinc-50 min-h-0">
+        <main className="flex-1 overflow-y-auto p-3.5 sm:p-5 md:p-8 bg-zinc-50 min-h-0">
           <Outlet context={{ activeFlock, flocks, refreshFlocks: refetchFlocks, health }} />
         </main>
       </div>

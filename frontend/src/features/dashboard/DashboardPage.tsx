@@ -73,20 +73,28 @@ export const DashboardPage: React.FC = () => {
     );
   }
 
+  const getLocalDateString = () => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       {/* Top Banner & Date Selector */}
-      <div className="panel p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]">
+      <div className="panel p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]">
         <div>
-          <div className="flex items-center gap-3">
-            <span className="font-mono text-sm font-bold bg-black text-white px-2 py-0.5">
+          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+            <span className="font-mono text-xs sm:text-sm font-bold bg-black text-white px-2 py-0.5">
               {activeFlock.flockCode}
             </span>
-            <h2 className="text-base font-bold tracking-tight uppercase">
+            <h2 className="text-sm sm:text-base font-bold tracking-tight uppercase">
               {activeFlock.name}
             </h2>
             <span
-              className={`text-[10px] font-mono px-2 py-0.5 uppercase font-bold border ${
+              className={`text-[9px] sm:text-[10px] font-mono px-2 py-0.5 uppercase font-bold border ${
                 activeFlock.status === 'active'
                   ? 'bg-black text-white border-black'
                   : 'bg-white text-zinc-600 border-zinc-400'
@@ -96,20 +104,20 @@ export const DashboardPage: React.FC = () => {
             </span>
           </div>
 
-          <div className="flex items-center gap-4 mt-2 text-xs font-mono text-zinc-600">
+          <div className="flex items-center gap-2 sm:gap-4 mt-2 text-[11px] sm:text-xs font-mono text-zinc-600 flex-wrap">
             <span>Started: {activeFlock.startDate}</span>
-            <span>•</span>
+            <span className="hidden sm:inline">•</span>
             <span className="font-bold text-black">
               Age: {data?.birdAge ? data.birdAge.formatted : 'Calculating...'} ({data?.birdAge ? `${data.birdAge.totalDays} days` : ''})
             </span>
-            <span>•</span>
-            <span>Initial Birds: {activeFlock.initialBirds.toLocaleString()}</span>
+            <span className="hidden sm:inline">•</span>
+            <span>Initial: {activeFlock.initialBirds.toLocaleString()}</span>
           </div>
         </div>
 
         {/* Date Selector & Daily Entry Quick Link */}
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className="flex items-center gap-2 border border-black px-3 py-1.5 bg-white">
+        <div className="flex items-center gap-2.5 sm:gap-3 flex-wrap w-full md:w-auto">
+          <div className="flex items-center gap-2 border border-black px-3 py-1.5 bg-white shrink-0">
             <Calendar className="w-3.5 h-3.5 text-black" />
             <input
               type="date"
@@ -120,8 +128,8 @@ export const DashboardPage: React.FC = () => {
           </div>
 
           <button
-            onClick={() => handleDateChange(new Date().toISOString().split('T')[0])}
-            className="border border-black px-2.5 py-1.5 text-xs font-mono uppercase hover:bg-zinc-100 font-semibold"
+            onClick={() => handleDateChange(getLocalDateString())}
+            className="border border-black px-2.5 py-1.5 text-xs font-mono uppercase hover:bg-zinc-100 font-semibold shrink-0"
             title="Jump to today"
           >
             Today
@@ -129,7 +137,7 @@ export const DashboardPage: React.FC = () => {
 
           <button
             onClick={() => refetch()}
-            className="border border-black p-2 hover:bg-zinc-100"
+            className="border border-black p-2 hover:bg-zinc-100 shrink-0"
             title="Refresh"
           >
             <RefreshCw className={`w-3.5 h-3.5 text-black ${isFetching ? 'animate-spin' : ''}`} />
@@ -137,7 +145,7 @@ export const DashboardPage: React.FC = () => {
 
           <button
             onClick={() => navigate(`/flocks/${activeFlock.id}/daily?date=${date}`)}
-            className="flex items-center gap-2 bg-black text-white px-4 py-1.5 text-xs font-bold uppercase tracking-wider hover:bg-zinc-800 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+            className="flex items-center justify-center gap-2 bg-black text-white px-4 py-2 sm:py-1.5 text-xs font-bold uppercase tracking-wider hover:bg-zinc-800 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] w-full sm:w-auto shrink-0"
           >
             <span>Enter Daily Record</span>
             <ArrowRight className="w-3.5 h-3.5" />
@@ -167,9 +175,9 @@ export const DashboardPage: React.FC = () => {
       )}
 
       {/* Primary KPI Grid (Section 21) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
         {/* Card 1: Birds & Mortality */}
-        <div className="panel p-5 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex flex-col justify-between">
+        <div className="panel p-4 sm:p-5 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between border-b border-black pb-2 mb-3">
               <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-600">
@@ -177,7 +185,7 @@ export const DashboardPage: React.FC = () => {
               </span>
               <TrendingDown className="w-4 h-4 text-black" />
             </div>
-            <div className="text-3xl font-bold font-tabular tracking-tight">
+            <div className="text-2xl sm:text-3xl font-bold font-tabular tracking-tight">
               {isLoading ? '...' : (data ? data.birds.remaining.toLocaleString() : '---')}
             </div>
             <div className="text-[11px] font-mono text-zinc-500 mt-1">
@@ -185,24 +193,24 @@ export const DashboardPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="mt-4 pt-3 border-t border-zinc-200 grid grid-cols-3 gap-2 text-xs font-mono">
+          <div className="mt-4 pt-3 border-t border-zinc-200 grid grid-cols-3 gap-1.5 sm:gap-2 text-[11px] sm:text-xs font-mono">
             <div>
-              <span className="text-zinc-500 block text-[10px] uppercase">Today Mort.</span>
+              <span className="text-zinc-500 block text-[9px] sm:text-[10px] uppercase truncate">Today Mort.</span>
               <span className="font-bold">{data?.birds.todayMortality ?? 0}</span>
             </div>
             <div>
-              <span className="text-zinc-500 block text-[10px] uppercase">Moat (Cumul.)</span>
+              <span className="text-zinc-500 block text-[9px] sm:text-[10px] uppercase truncate">Moat (Cumul.)</span>
               <span className="font-bold text-black">{data?.birds.moat ?? data?.birds.cumulativeMortality ?? 0}</span>
             </div>
             <div>
-              <span className="text-zinc-500 block text-[10px] uppercase">Moat %</span>
+              <span className="text-zinc-500 block text-[9px] sm:text-[10px] uppercase truncate">Moat %</span>
               <span className="font-bold text-black">{data?.birds.moatPercentage ?? data?.birds.mortalityRate ?? 0}%</span>
             </div>
           </div>
         </div>
 
         {/* Card 2: Feed Stock & Consumption */}
-        <div className="panel p-5 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex flex-col justify-between">
+        <div className="panel p-4 sm:p-5 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between border-b border-black pb-2 mb-3">
               <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-600">
@@ -210,7 +218,7 @@ export const DashboardPage: React.FC = () => {
               </span>
               <Package className="w-4 h-4 text-black" />
             </div>
-            <div className="text-3xl font-bold font-tabular tracking-tight">
+            <div className="text-2xl sm:text-3xl font-bold font-tabular tracking-tight">
               {isLoading ? '...' : (data ? `${data.feed.remainingBags.toLocaleString()} Bags` : '---')}
             </div>
             <div className="text-[11px] font-mono text-zinc-500 mt-1">
@@ -218,17 +226,17 @@ export const DashboardPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="mt-4 pt-3 border-t border-zinc-200 grid grid-cols-3 gap-2 text-xs font-mono">
+          <div className="mt-4 pt-3 border-t border-zinc-200 grid grid-cols-3 gap-1.5 sm:gap-2 text-[11px] sm:text-xs font-mono">
             <div>
-              <span className="text-zinc-500 block text-[10px] uppercase">Total Recv.</span>
+              <span className="text-zinc-500 block text-[9px] sm:text-[10px] uppercase truncate">Total Recv.</span>
               <span className="font-bold">{data?.feed.totalReceivedBags ?? 0} bags</span>
             </div>
             <div>
-              <span className="text-zinc-500 block text-[10px] uppercase">Today Used</span>
+              <span className="text-zinc-500 block text-[9px] sm:text-[10px] uppercase truncate">Today Used</span>
               <span className="font-bold">{data?.feed.todayUsedBags ?? 0} bags</span>
             </div>
             <div>
-              <span className="text-zinc-500 block text-[10px] uppercase">Feed / Bird</span>
+              <span className="text-zinc-500 block text-[9px] sm:text-[10px] uppercase truncate">Feed / Bird</span>
               <span className="font-bold">{data?.feed.consumptionGramsPerBird ?? 0} g/bird</span>
             </div>
           </div>
@@ -236,7 +244,7 @@ export const DashboardPage: React.FC = () => {
 
         {/* Card 3: Eggs (Only if enabled) */}
         {activeFlock.eggTrackingEnabled ? (
-          <div className="panel p-5 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex flex-col justify-between">
+          <div className="panel p-4 sm:p-5 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between border-b border-black pb-2 mb-3">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-600">
@@ -244,7 +252,7 @@ export const DashboardPage: React.FC = () => {
                 </span>
                 <Egg className="w-4 h-4 text-black" />
               </div>
-              <div className="text-2xl font-bold font-tabular tracking-tight">
+              <div className="text-xl sm:text-2xl font-bold font-tabular tracking-tight">
                 {isLoading ? '...' : (data?.eggs?.stockFormatted ?? '0 Peti, 0 Trays')}
               </div>
               <div className="text-[11px] font-mono text-zinc-500 mt-1">
@@ -252,22 +260,22 @@ export const DashboardPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="mt-4 pt-3 border-t border-zinc-200 grid grid-cols-3 gap-2 text-xs font-mono">
+            <div className="mt-4 pt-3 border-t border-zinc-200 grid grid-cols-3 gap-1.5 sm:gap-2 text-[11px] sm:text-xs font-mono">
               <div>
-                <span className="text-zinc-500 block text-[10px] uppercase">Today Prod</span>
+                <span className="text-zinc-500 block text-[9px] sm:text-[10px] uppercase truncate">Today Prod</span>
                 <span className="font-bold">
                   {data?.eggs?.todayProductionPeti ?? 0}P, {data?.eggs?.todayProductionTrays ?? 0}T
                 </span>
               </div>
               <div>
-                <span className="text-zinc-500 block text-[10px] uppercase">Today Sold</span>
+                <span className="text-zinc-500 block text-[9px] sm:text-[10px] uppercase truncate">Today Sold</span>
                 <span className="font-bold">
                   {data?.eggs?.todaySoldPeti ?? 0}P, {data?.eggs?.todaySoldTrays ?? 0}T
                 </span>
               </div>
               <div>
-                <span className="text-zinc-500 block text-[10px] uppercase">Prod %</span>
-                <span className="font-bold">{data?.eggs?.productionPercentage ?? 0}%</span>
+                <span className="text-zinc-500 block text-[9px] sm:text-[10px] uppercase truncate">Prod. %</span>
+                <span className="font-bold text-black">{data?.eggs?.productionPercentage ?? 0}%</span>
               </div>
             </div>
           </div>
@@ -294,15 +302,19 @@ export const DashboardPage: React.FC = () => {
                 <span className="font-bold">{data?.diesel.todayArrivalLiters ?? 0} L</span>
               </div>
               <div>
-                <span className="text-zinc-500 block text-[10px] uppercase">Today Used</span>
+            <span className="text-zinc-500 block text-[10px] uppercase">Today Used</span>
                 <span className="font-bold">{data?.diesel.todayUsedLiters ?? 0} L</span>
+              </div>
+              <div>
+                <span className="text-zinc-500 block text-[10px] uppercase">Today Arrival</span>
+                <span className="font-bold">{data?.diesel.todayArrivalLiters ?? 0} L</span>
               </div>
             </div>
           </div>
         )}
 
         {/* Card 4: Water Intake */}
-        <div className="panel p-5 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex flex-col justify-between">
+        <div className="panel p-4 sm:p-5 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between border-b border-black pb-2 mb-3">
               <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-600">
@@ -310,7 +322,7 @@ export const DashboardPage: React.FC = () => {
               </span>
               <Droplets className="w-4 h-4 text-black" />
             </div>
-            <div className="text-3xl font-bold font-tabular tracking-tight">
+            <div className="text-2xl sm:text-3xl font-bold font-tabular tracking-tight">
               {isLoading ? '...' : (data ? `${data.water.liters.toLocaleString()} L` : '---')}
             </div>
             <div className="text-[11px] font-mono text-zinc-500 mt-1">
@@ -326,7 +338,7 @@ export const DashboardPage: React.FC = () => {
 
         {/* Card 5: Diesel (if egg card shown) */}
         {activeFlock.eggTrackingEnabled && (
-          <div className="panel p-5 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex flex-col justify-between">
+          <div className="panel p-4 sm:p-5 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between border-b border-black pb-2 mb-3">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-600">
@@ -334,7 +346,7 @@ export const DashboardPage: React.FC = () => {
                 </span>
                 <Fuel className="w-4 h-4 text-black" />
               </div>
-              <div className="text-3xl font-bold font-tabular tracking-tight">
+              <div className="text-2xl sm:text-3xl font-bold font-tabular tracking-tight">
                 {isLoading ? '...' : (data ? `${data.diesel.remainingLiters.toFixed(1)} L` : '---')}
               </div>
               <div className="text-[11px] font-mono text-zinc-500 mt-1">
@@ -356,7 +368,7 @@ export const DashboardPage: React.FC = () => {
         )}
 
         {/* Card 6: Bird Weight & Uniformity */}
-        <div className="panel p-5 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex flex-col justify-between">
+        <div className="panel p-4 sm:p-5 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between border-b border-black pb-2 mb-3">
               <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-600">
@@ -364,7 +376,7 @@ export const DashboardPage: React.FC = () => {
               </span>
               <Scale className="w-4 h-4 text-black" />
             </div>
-            <div className="text-3xl font-bold font-tabular tracking-tight">
+            <div className="text-2xl sm:text-3xl font-bold font-tabular tracking-tight">
               {isLoading ? '...' : (data?.weight ? `${data.weight.weight} g` : 'No Record')}
             </div>
             <div className="text-[11px] font-mono text-zinc-500 mt-1">
@@ -382,14 +394,14 @@ export const DashboardPage: React.FC = () => {
       {/* Monochrome Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-4">
         {/* Chart 1: Daily Mortality Trend */}
-        <div className="panel p-5 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+        <div className="panel p-4 sm:p-5 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
           <div className="flex items-center justify-between mb-4 border-b border-black pb-2">
             <h3 className="text-xs font-bold uppercase tracking-wider">
               Mortality History (Recent Dates)
             </h3>
             <span className="text-[10px] font-mono text-zinc-500">Unit: Birds</span>
           </div>
-          <div className="h-64 w-full">
+          <div className="h-56 sm:h-64 w-full">
             {data?.trendData && data.trendData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={data.trendData}>

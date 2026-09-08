@@ -52,10 +52,10 @@ export const FlocksPage: React.FC = () => {
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       {/* Header & Controls */}
-      <div className="panel p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]">
+      <div className="panel p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]">
         <div>
           <div className="flex items-center gap-2">
-            <Layers className="w-5 h-5 text-black" />
+            <Layers className="w-5 h-5 text-black shrink-0" />
             <h1 className="text-base font-bold uppercase tracking-wider">
               Flock Management & History
             </h1>
@@ -65,14 +65,14 @@ export const FlocksPage: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-3 w-full sm:w-auto flex-wrap">
           {/* Status Filter Tabs */}
           <div className="border border-black p-0.5 flex bg-zinc-100 text-xs font-mono">
             {(['all', 'active', 'closed'] as const).map((s) => (
               <button
                 key={s}
                 onClick={() => setFilter(s)}
-                className={`px-3 py-1 uppercase font-semibold transition-all ${
+                className={`px-2.5 sm:px-3 py-1 uppercase font-semibold transition-all text-xs ${
                   filter === s ? 'bg-black text-white' : 'text-zinc-600 hover:text-black'
                 }`}
               >
@@ -83,7 +83,7 @@ export const FlocksPage: React.FC = () => {
 
           <button
             onClick={() => setIsCreateModalOpen(true)}
-            className="flex items-center gap-1.5 bg-black text-white px-4 py-2 text-xs font-bold uppercase tracking-wider hover:bg-zinc-800 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+            className="flex items-center gap-1.5 bg-black text-white px-3 sm:px-4 py-2 text-xs font-bold uppercase tracking-wider hover:bg-zinc-800 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] whitespace-nowrap active:translate-x-0.5 active:translate-y-0.5"
           >
             <Plus className="w-4 h-4" />
             <span>Create Flock</span>
@@ -112,10 +112,116 @@ export const FlocksPage: React.FC = () => {
         </div>
       )}
 
-      {/* Flocks Table */}
-      <div className="panel overflow-hidden shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]">
+      {/* Mobile Card List View (Phones & Small Tablets) */}
+      <div className="block md:hidden space-y-3">
+        {isLoading ? (
+          <div className="panel p-8 text-center text-xs font-mono text-zinc-500 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+            Loading flocks from database...
+          </div>
+        ) : flocks.length === 0 ? (
+          <div className="panel p-8 text-center text-xs font-mono text-zinc-500 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+            No flocks found matching current filter.
+          </div>
+        ) : (
+          flocks.map((flock) => {
+            const isCurrent = activeFlock?.id === flock.id;
+
+            return (
+              <div
+                key={flock.id}
+                className={`panel p-4 space-y-3 border-2 border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] transition-all ${
+                  isCurrent ? 'bg-zinc-50' : 'bg-white'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-mono font-bold bg-black text-white px-2 py-0.5">
+                        {flock.flockCode}
+                      </span>
+                      {isCurrent && (
+                        <span className="text-[9px] font-mono bg-black text-white px-1.5 py-0.5 uppercase font-bold">
+                          Active In Session
+                        </span>
+                      )}
+                      <span
+                        className={`px-2 py-0.5 text-[10px] font-mono uppercase font-bold border ${
+                          flock.status === 'active'
+                            ? 'bg-black text-white border-black'
+                            : 'bg-white text-zinc-600 border-zinc-400'
+                        }`}
+                      >
+                        {flock.status}
+                      </span>
+                    </div>
+                    <h3 className="font-bold text-sm text-black mt-1.5 font-sans">
+                      {flock.name}
+                    </h3>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs font-mono bg-zinc-100 p-2.5 border border-zinc-300">
+                  <div>
+                    <span className="text-zinc-500 text-[10px] uppercase block">Start Date</span>
+                    <span className="font-semibold text-zinc-800">{flock.startDate}</span>
+                  </div>
+                  <div>
+                    <span className="text-zinc-500 text-[10px] uppercase block">Initial Birds</span>
+                    <span className="font-semibold text-black font-tabular">
+                      {flock.initialBirds.toLocaleString()}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-zinc-500 text-[10px] uppercase block">Egg Tracking</span>
+                    <span className="font-semibold">
+                      {flock.eggTrackingEnabled ? 'Enabled' : 'Disabled'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-zinc-500 text-[10px] uppercase block">Status</span>
+                    <span className="font-semibold uppercase">{flock.status}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 pt-1">
+                  {!isCurrent && (
+                    <button
+                      type="button"
+                      onClick={() => handleSetActive(flock)}
+                      className="flex-1 py-2 text-xs font-mono font-bold uppercase border-2 border-black bg-white hover:bg-black hover:text-white transition-colors text-center shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]"
+                    >
+                      Select
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/flocks/${flock.id}/daily`)}
+                    className="flex-1 py-2 text-xs font-mono font-bold uppercase border-2 border-black bg-black text-white hover:bg-zinc-800 transition-colors text-center shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]"
+                  >
+                    Daily Log
+                  </button>
+                  {flock.status === 'active' && (
+                    <button
+                      type="button"
+                      onClick={() => setFlockToClose(flock)}
+                      disabled={closeFlockMutation.isPending}
+                      className="py-2 px-3 text-xs font-mono font-bold uppercase border border-zinc-400 text-zinc-700 bg-white hover:bg-zinc-100 disabled:opacity-50"
+                      title="Close flock and mark read-only"
+                    >
+                      Close
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {/* Flocks Table (Desktop View) */}
+      <div className="hidden md:block panel overflow-hidden shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full text-left border-collapse min-w-[700px]">
             <thead>
               <tr className="border-b border-black bg-zinc-100 text-[10px] font-mono uppercase tracking-widest text-zinc-600">
                 <th className="py-3 px-4">Code</th>
