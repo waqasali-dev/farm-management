@@ -1,6 +1,17 @@
 import { DashboardData, Flock, HealthStatus, UnifiedDailyRecord } from '../types/index.js';
 
-const API_BASE = '/api/v1';
+// Dynamically resolve API_BASE from VITE_API_URL env variable (supports cloud Render & local dev)
+const rawApiUrl = (import.meta.env.VITE_API_URL || '').trim();
+
+function resolveApiBase(url: string): string {
+  if (!url) return '/api/v1';
+  const clean = url.replace(/\/+$/, '');
+  if (clean.endsWith('/api/v1')) return clean;
+  if (clean.endsWith('/api')) return `${clean}/v1`;
+  return `${clean}/api/v1`;
+}
+
+export const API_BASE = resolveApiBase(rawApiUrl);
 
 async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
   const headers: Record<string, string> = {};
