@@ -136,26 +136,35 @@ export function getRedisClientName(): string {
 export async function getCache<T>(key: string): Promise<T | null> {
   if (!isRedisAvailable) return null;
   try {
+    let result: T | null = null;
     if (upstashClient) {
       const data = await upstashClient.get<T>(key);
-      if (data === null || data === undefined) return null;
-      if (typeof data === 'string') {
-        try {
-          return JSON.parse(data) as T;
-        } catch {
-          return data as unknown as T;
+      if (data !== null && data !== undefined) {
+        if (typeof data === 'string') {
+          try {
+            result = JSON.parse(data) as T;
+          } catch {
+            result = data as unknown as T;
+          }
+        } else {
+          result = data as T;
         }
       }
-      return data as T;
-    }
-    if (ioRedisClient) {
+    } else if (ioRedisClient) {
       const data = await ioRedisClient.get(key);
-      return data ? JSON.parse(data) : null;
+      result = data ? JSON.parse(data) : null;
+    }
+
+    if (result !== null && result !== undefined) {
+      console.log(`[Redis HIT] key: ${key}`);
+      return result;
+    } else {
+      console.log(`[Redis MISS] key: ${key} -> falling back to DB/store`);
+      return null;
     }
   } catch {
     return null;
   }
-  return null;
 }
 
 export async function setCache(key: string, value: any, ttlSeconds = 300): Promise<void> {
@@ -163,10 +172,12 @@ export async function setCache(key: string, value: any, ttlSeconds = 300): Promi
   try {
     if (upstashClient) {
       await upstashClient.set(key, value, { ex: ttlSeconds });
+      console.log(`[Redis SET/UPDATED] key: ${key} (ttl: ${ttlSeconds}s)`);
       return;
     }
     if (ioRedisClient) {
       await ioRedisClient.set(key, JSON.stringify(value), 'EX', ttlSeconds);
+      console.log(`[Redis SET/UPDATED] key: ${key} (ttl: ${ttlSeconds}s)`);
       return;
     }
   } catch {
@@ -179,10 +190,12 @@ export async function deleteCache(key: string): Promise<void> {
   try {
     if (upstashClient) {
       await upstashClient.del(key);
+      console.log(`[Redis DEL] key: ${key}`);
       return;
     }
     if (ioRedisClient) {
       await ioRedisClient.del(key);
+      console.log(`[Redis DEL] key: ${key}`);
       return;
     }
   } catch {
@@ -197,6 +210,7 @@ export async function deleteByPattern(pattern: string): Promise<void> {
       const keys = await upstashClient.keys(pattern);
       if (keys.length > 0) {
         await upstashClient.del(...keys);
+        console.log(`[Redis INVALIDATED] pattern: ${pattern} (${keys.length} keys)`);
       }
       return;
     }
@@ -204,6 +218,7 @@ export async function deleteByPattern(pattern: string): Promise<void> {
       const keys = await ioRedisClient.keys(pattern);
       if (keys.length > 0) {
         await ioRedisClient.del(...keys);
+        console.log(`[Redis INVALIDATED] pattern: ${pattern} (${keys.length} keys)`);
       }
       return;
     }
