@@ -3,22 +3,35 @@ import { z } from 'zod';
 import { db, isDatabaseConnected, schema } from '../../db/client.js';
 import { mockStore } from '../../db/mock-store.js';
 import { successResponse, errorResponse } from '../../utils/response.js';
+import { getCache, setCache } from '../../db/redis.js';
 
 const createMedicineSchema = z.object({
   name: z.string().min(1, 'Medicine name is required'),
 });
 
+const MEDICINES_CACHE_KEY = 'medicines:list';
+
 export const medicineRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get('/medicines', async () => {
+    // 1. Check Redis first
+    const cached = await getCache<any[]>(MEDICINES_CACHE_KEY);
+    if (cached) {
+      return successResponse(cached);
+    }
+
     if (isDatabaseConnected()) {
       try {
         const list = await db.select().from(schema.medicines);
+        await setCache(MEDICINES_CACHE_KEY, list, 300);
         return successResponse(list);
       } catch (err) {
         // Fall back to mock store
       }
     }
-    return successResponse(mockStore.medicines);
+
+    const fallbackList = mockStore.medicines;
+    await setCache(MEDICINES_CACHE_KEY, fallbackList, 300);
+    return successResponse(fallbackList);
   });
 
   fastify.post('/medicines', async (request, reply) => {
@@ -44,6 +57,14 @@ export const medicineRoutes: FastifyPluginAsync = async (fastify) => {
           })
           .returning();
 
+        // Refresh Redis medicines cache immediately with updated list
+        try {
+          const updatedList = await db.select().from(schema.medicines);
+          await setCache(MEDICINES_CACHE_KEY, updatedList, 300);
+        } catch {
+          // Ignore cache refresh error
+        }
+
         reply.status(201);
         return successResponse(newMed);
       } catch (err: any) {
@@ -60,6 +81,10 @@ export const medicineRoutes: FastifyPluginAsync = async (fastify) => {
     };
 
     mockStore.medicines.push(newMed);
+
+    // Refresh Redis medicines cache with updated mockStore list
+    await setCache(MEDICINES_CACHE_KEY, mockStore.medicines, 300);
+
     reply.status(201);
     return successResponse(newMed);
   });

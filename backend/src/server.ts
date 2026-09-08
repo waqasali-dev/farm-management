@@ -28,7 +28,7 @@ async function start() {
 
     const redisStatus = await checkRedisConnection();
     if (redisStatus.connected) {
-      console.log(`✅ Redis Cache: Connected via ioredis`);
+      console.log(`✅ Redis Cache: Connected via ${redisStatus.client || 'Upstash Redis'}`);
     } else {
       console.log(`ℹ️ Redis Cache: Offline (${redisStatus.error}). Proceeding without cache.`);
     }

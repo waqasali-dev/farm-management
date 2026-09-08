@@ -13,11 +13,19 @@ import {
   calculateBirdAge,
   calculateWaterPerBirdMl,
 } from '../../calculations/index.js';
+import { getCache, setCache } from '../../db/redis.js';
 
 export const reportRoutes: FastifyPluginAsync = async (fastify) => {
   // GET /api/v1/flocks/:flockId/reports/summary
   fastify.get('/flocks/:flockId/reports/summary', async (request, reply) => {
     const { flockId } = request.params as { flockId: string };
+    const cacheKey = `flock:${flockId}:report:summary`;
+
+    // 1. Check Redis first
+    const cached = await getCache<any>(cacheKey);
+    if (cached) {
+      return successResponse(cached);
+    }
 
     if (isDatabaseConnected()) {
       try {
@@ -79,7 +87,7 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
           };
         });
 
-        return successResponse({
+        const result = {
           flock: {
             id: flock.id,
             flockCode: flock.flockCode,
@@ -88,7 +96,9 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
             initialBirds: flock.initialBirds,
           },
           rows: dailySummaryRows,
-        });
+        };
+        await setCache(cacheKey, result, 300);
+        return successResponse(result);
       } catch (err) {
         // Fall back to mock store
       }
@@ -133,7 +143,7 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
       };
     });
 
-    return successResponse({
+    const fallbackResult = {
       flock: {
         id: flock.id,
         flockCode: flock.flockCode,
@@ -142,12 +152,21 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
         initialBirds: flock.initialBirds,
       },
       rows: dailySummaryRows,
-    });
+    };
+    await setCache(cacheKey, fallbackResult, 300);
+    return successResponse(fallbackResult);
   });
 
   // GET /api/v1/flocks/:flockId/reports/mortality
   fastify.get('/flocks/:flockId/reports/mortality', async (request, reply) => {
     const { flockId } = request.params as { flockId: string };
+    const cacheKey = `flock:${flockId}:report:mortality`;
+
+    // 1. Check Redis first
+    const cached = await getCache<any>(cacheKey);
+    if (cached) {
+      return successResponse(cached);
+    }
 
     if (isDatabaseConnected()) {
       try {
@@ -180,7 +199,9 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
           };
         });
 
-        return successResponse({ flock, rows });
+        const result = { flock, rows };
+        await setCache(cacheKey, result, 300);
+        return successResponse(result);
       } catch (err) {
         // Fall through
       }
@@ -211,12 +232,21 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
       };
     });
 
-    return successResponse({ flock, rows });
+    const fallbackResult = { flock, rows };
+    await setCache(cacheKey, fallbackResult, 300);
+    return successResponse(fallbackResult);
   });
 
   // GET /api/v1/flocks/:flockId/reports/feed
   fastify.get('/flocks/:flockId/reports/feed', async (request, reply) => {
     const { flockId } = request.params as { flockId: string };
+    const cacheKey = `flock:${flockId}:report:feed`;
+
+    // 1. Check Redis first
+    const cached = await getCache<any>(cacheKey);
+    if (cached) {
+      return successResponse(cached);
+    }
 
     if (isDatabaseConnected()) {
       try {
@@ -239,7 +269,9 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
           };
         });
 
-        return successResponse({ rows });
+        const result = { rows };
+        await setCache(cacheKey, result, 300);
+        return successResponse(result);
       } catch (err) {
         // Fall through
       }
@@ -262,12 +294,21 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
       };
     });
 
-    return successResponse({ rows });
+    const fallbackResult = { rows };
+    await setCache(cacheKey, fallbackResult, 300);
+    return successResponse(fallbackResult);
   });
 
   // GET /api/v1/flocks/:flockId/reports/eggs
   fastify.get('/flocks/:flockId/reports/eggs', async (request, reply) => {
     const { flockId } = request.params as { flockId: string };
+    const cacheKey = `flock:${flockId}:report:eggs`;
+
+    // 1. Check Redis first
+    const cached = await getCache<any>(cacheKey);
+    if (cached) {
+      return successResponse(cached);
+    }
 
     if (isDatabaseConnected()) {
       try {
@@ -327,7 +368,9 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
           };
         });
 
-        return successResponse({ rows, enabled: true });
+        const result = { rows, enabled: true };
+        await setCache(cacheKey, result, 300);
+        return successResponse(result);
       } catch (err) {
         // Fall through
       }
@@ -381,12 +424,21 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
       };
     });
 
-    return successResponse({ rows, enabled: true });
+    const fallbackResult = { rows, enabled: true };
+    await setCache(cacheKey, fallbackResult, 300);
+    return successResponse(fallbackResult);
   });
 
   // GET /api/v1/flocks/:flockId/reports/diesel
   fastify.get('/flocks/:flockId/reports/diesel', async (request, reply) => {
     const { flockId } = request.params as { flockId: string };
+    const cacheKey = `flock:${flockId}:report:diesel`;
+
+    // 1. Check Redis first
+    const cached = await getCache<any>(cacheKey);
+    if (cached) {
+      return successResponse(cached);
+    }
 
     if (isDatabaseConnected()) {
       try {
@@ -415,12 +467,15 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
           };
         });
 
-        return successResponse({ flock, rows });
+        const result = { flock, rows };
+        await setCache(cacheKey, result, 300);
+        return successResponse(result);
       } catch (err) {
         // Fall through
       }
     }
 
+    const flock = mockStore.flocks.find((f) => f.id === flockId);
     const records = mockStore.dieselRecords
       .filter((r) => r.flockId === flockId)
       .sort((a, b) => a.date.localeCompare(b.date));
@@ -436,12 +491,21 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
       };
     });
 
-    return successResponse({ rows });
+    const fallbackResult = { flock: flock || undefined, rows };
+    await setCache(cacheKey, fallbackResult, 300);
+    return successResponse(fallbackResult);
   });
 
   // GET /api/v1/flocks/:flockId/reports/weight
   fastify.get('/flocks/:flockId/reports/weight', async (request, reply) => {
     const { flockId } = request.params as { flockId: string };
+    const cacheKey = `flock:${flockId}:report:weight`;
+
+    // 1. Check Redis first
+    const cached = await getCache<any>(cacheKey);
+    if (cached) {
+      return successResponse(cached);
+    }
 
     if (isDatabaseConnected()) {
       try {
@@ -469,7 +533,9 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
           };
         });
 
-        return successResponse({ flock, rows });
+        const result = { flock, rows };
+        await setCache(cacheKey, result, 300);
+        return successResponse(result);
       } catch (err) {
         // Fall through
       }
@@ -492,12 +558,21 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
       };
     });
 
-    return successResponse({ rows });
+    const fallbackResult = { flock: flock || undefined, rows };
+    await setCache(cacheKey, fallbackResult, 300);
+    return successResponse(fallbackResult);
   });
 
   // GET /api/v1/flocks/:flockId/reports/health
   fastify.get('/flocks/:flockId/reports/health', async (request, reply) => {
     const { flockId } = request.params as { flockId: string };
+    const cacheKey = `flock:${flockId}:report:health`;
+
+    // 1. Check Redis first
+    const cached = await getCache<any>(cacheKey);
+    if (cached) {
+      return successResponse(cached);
+    }
 
     if (isDatabaseConnected()) {
       try {
@@ -566,12 +641,59 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
           };
         });
 
-        return successResponse({ flock, rows });
+        const result = { flock, rows };
+        await setCache(cacheKey, result, 300);
+        return successResponse(result);
       } catch (err) {
         // Fall through
       }
     }
 
-    return successResponse({ rows: [] });
+    const flock = mockStore.flocks.find((f) => f.id === flockId);
+    const birdRecords = mockStore.birdRecords
+      .filter((r) => r.flockId === flockId)
+      .sort((a, b) => a.date.localeCompare(b.date));
+    const medRecords = mockStore.medicineDailyRecords
+      .filter((r) => r.flockId === flockId)
+      .sort((a, b) => a.date.localeCompare(b.date));
+    const allVaccinations = mockStore.vaccinationRecords.filter((r) => r.flockId === flockId);
+
+    const dateSet = new Set<string>();
+    medRecords.forEach((m) => dateSet.add(m.date));
+    allVaccinations.forEach((v) => dateSet.add(v.date));
+    const dates = Array.from(dateSet).sort();
+
+    let runningMortality = 0;
+    const mortalityByDate = new Map<string, number>();
+    birdRecords.forEach((b) => {
+      runningMortality += b.mortality;
+      mortalityByDate.set(b.date, runningMortality);
+    });
+
+    const rows = dates.map((d) => {
+      const med = medRecords.find((m) => m.date === d);
+      const vac = allVaccinations.find((v) => v.date === d);
+      const currentMort = mortalityByDate.get(d) ?? 0;
+      const initialBirds = flock?.initialBirds || 10000;
+      const remaining = Math.max(0, initialBirds - currentMort);
+
+      const medDetails = (med?.medicines || []).map((m) => `${m.name} (${m.dosagePerLiter || 0} ml/L)`);
+      const waterLiters = med?.waterLiters || 0;
+      const waterPerBirdMl = calculateWaterPerBirdMl(waterLiters, remaining);
+
+      return {
+        date: d,
+        type: med?.type || 'water',
+        waterLiters,
+        waterPerBirdMl,
+        medicines: medDetails.join(', ') || 'None',
+        vaccineName: vac?.vaccineName || '---',
+        vaccineNotes: vac?.notes || '---',
+      };
+    });
+
+    const fallbackResult = { flock: flock || undefined, rows };
+    await setCache(cacheKey, fallbackResult, 300);
+    return successResponse(fallbackResult);
   });
 };

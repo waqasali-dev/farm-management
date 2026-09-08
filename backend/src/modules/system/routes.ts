@@ -19,7 +19,7 @@ export const systemRoutes: FastifyPluginAsync = async (fastify) => {
           error: dbStatus.error || null,
         },
         redis: {
-          client: 'ioredis',
+          client: redisStatus.client || 'Upstash Redis',
           connected: redisStatus.connected,
           error: redisStatus.error || null,
         },

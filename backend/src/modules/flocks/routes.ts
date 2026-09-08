@@ -4,7 +4,7 @@ import { eq, desc } from 'drizzle-orm';
 import { db, isDatabaseConnected, schema } from '../../db/client.js';
 import { mockStore } from '../../db/mock-store.js';
 import { successResponse, errorResponse } from '../../utils/response.js';
-import { flushFlockCache } from '../../db/redis.js';
+import { flushFlockCache, flushFlocksListCache, getCache, setCache } from '../../db/redis.js';
 
 const createFlockSchema = z.object({
   name: z.string().min(1, 'Flock name is required'),
@@ -31,6 +31,13 @@ export const flockRoutes: FastifyPluginAsync = async (fastify) => {
   // GET /api/v1/flocks
   fastify.get('/flocks', async (request) => {
     const query = request.query as { status?: string };
+    const cacheKey = `flocks:list:${query.status || 'all'}`;
+
+    // 1. Check Redis first
+    const cached = await getCache<any[]>(cacheKey);
+    if (cached) {
+      return successResponse(cached);
+    }
 
     if (isDatabaseConnected()) {
       try {
@@ -42,6 +49,7 @@ export const flockRoutes: FastifyPluginAsync = async (fastify) => {
         if (query.status) {
           flocksList = flocksList.filter((f) => f.status === query.status);
         }
+        await setCache(cacheKey, flocksList, 180);
         return successResponse(flocksList);
       } catch (err) {
         // Fall through to mockStore
@@ -52,12 +60,20 @@ export const flockRoutes: FastifyPluginAsync = async (fastify) => {
     if (query.status) {
       flocks = flocks.filter((f) => f.status === query.status);
     }
+    await setCache(cacheKey, flocks, 180);
     return successResponse(flocks);
   });
 
   // GET /api/v1/flocks/:flockId
   fastify.get('/flocks/:flockId', async (request, reply) => {
     const { flockId } = request.params as { flockId: string };
+    const cacheKey = `flock:${flockId}:meta`;
+
+    // 1. Check Redis first
+    const cached = await getCache<any>(cacheKey);
+    if (cached) {
+      return successResponse(cached);
+    }
 
     if (isDatabaseConnected()) {
       try {
@@ -70,6 +86,7 @@ export const flockRoutes: FastifyPluginAsync = async (fastify) => {
           reply.status(404);
           return errorResponse('Flock not found', 'NOT_FOUND');
         }
+        await setCache(cacheKey, flock, 300);
         return successResponse(flock);
       } catch (err) {
         // Fall through to mockStore
@@ -81,6 +98,7 @@ export const flockRoutes: FastifyPluginAsync = async (fastify) => {
       reply.status(404);
       return errorResponse('Flock not found', 'NOT_FOUND');
     }
+    await setCache(cacheKey, flock, 300);
     return successResponse(flock);
   });
 
@@ -188,6 +206,7 @@ export const flockRoutes: FastifyPluginAsync = async (fastify) => {
         });
 
         await flushFlockCache(createdFlock.id);
+        await setCache(`flock:${createdFlock.id}:meta`, createdFlock, 300);
         reply.status(201);
         return successResponse(createdFlock);
       } catch (err: any) {
@@ -274,6 +293,8 @@ export const flockRoutes: FastifyPluginAsync = async (fastify) => {
       }
     }
 
+    await flushFlockCache(newFlock.id);
+    await setCache(`flock:${newFlock.id}:meta`, newFlock, 300);
     reply.status(201);
     return successResponse(newFlock);
   });
@@ -315,6 +336,7 @@ export const flockRoutes: FastifyPluginAsync = async (fastify) => {
           .returning();
 
         await flushFlockCache(flockId);
+        await setCache(`flock:${flockId}:meta`, updated, 300);
         return successResponse(updated);
       } catch (err: any) {
         reply.status(500);
@@ -342,6 +364,7 @@ export const flockRoutes: FastifyPluginAsync = async (fastify) => {
 
     mockStore.flocks[flockIndex] = updated;
     await flushFlockCache(flockId);
+    await setCache(`flock:${flockId}:meta`, updated, 300);
     return successResponse(updated);
   });
 
@@ -376,6 +399,7 @@ export const flockRoutes: FastifyPluginAsync = async (fastify) => {
           .returning();
 
         await flushFlockCache(flockId);
+        await setCache(`flock:${flockId}:meta`, closed, 300);
         return successResponse(closed);
       } catch (err: any) {
         reply.status(500);
@@ -403,6 +427,7 @@ export const flockRoutes: FastifyPluginAsync = async (fastify) => {
 
     mockStore.flocks[flockIndex] = closed;
     await flushFlockCache(flockId);
+    await setCache(`flock:${flockId}:meta`, closed, 300);
     return successResponse(closed);
   });
 };

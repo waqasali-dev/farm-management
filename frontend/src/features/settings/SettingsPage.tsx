@@ -101,7 +101,7 @@ export const SettingsPage: React.FC = () => {
             <div className="space-y-3 text-xs font-mono">
               <div>
                 <span className="text-zinc-500 block text-[10px] uppercase">Client Driver</span>
-                <span className="font-semibold">ioredis (resilient auto-reconnect)</span>
+                <span className="font-semibold">{health?.connections.redis.client || 'Upstash Redis'}</span>
               </div>
               <div>
                 <span className="text-zinc-500 block text-[10px] uppercase">Cache Purpose</span>
@@ -111,7 +111,7 @@ export const SettingsPage: React.FC = () => {
                 <span className="text-zinc-500 block text-[10px] uppercase">Status Details</span>
                 <span className="text-zinc-700 break-words">
                   {isRedisConnected
-                    ? 'Live connection active to Redis instance.'
+                    ? `Live connection active to ${health?.connections.redis.client || 'Redis'}.`
                     : `Redis cache is offline (${health?.connections.redis.error || 'Connection refused'}). Queries bypass cache without disruption.`}
                 </span>
               </div>
@@ -120,7 +120,7 @@ export const SettingsPage: React.FC = () => {
 
           <div className="mt-6 pt-3 border-t border-zinc-200">
             <span className="text-[10px] font-mono uppercase text-zinc-400 break-all">
-              Configured in backend/.env: REDIS_URL
+              Configured in backend/.env: UPSTASH_REDIS_REST_URL
             </span>
           </div>
         </div>

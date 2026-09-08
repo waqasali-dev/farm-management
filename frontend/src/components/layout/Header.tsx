@@ -89,7 +89,7 @@ export const Header: React.FC<HeaderProps> = ({
             }`}
             title={
               isRedisConnected
-                ? 'Redis cache connected via ioredis'
+                ? `Redis cache connected via ${health?.connections.redis.client || 'Upstash Redis'}`
                 : `Redis offline: ${health?.connections.redis.error || 'Running without cache'}`
             }
           >
