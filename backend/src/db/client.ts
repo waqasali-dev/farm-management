@@ -6,11 +6,22 @@ import { env } from '../config/env.js';
 // Connection options with resilience
 const connectionString = env.DATABASE_URL;
 
+// Automatic SSL detection for cloud deployments (Render, Supabase, Neon, etc.)
+const isProduction = env.NODE_ENV === 'production';
+const requiresSsl =
+  connectionString.includes('sslmode=require') ||
+  connectionString.includes('ssl=true') ||
+  connectionString.includes('render.com') ||
+  connectionString.includes('supabase.co') ||
+  connectionString.includes('neon.tech') ||
+  (isProduction && !connectionString.includes('localhost') && !connectionString.includes('127.0.0.1'));
+
 // PostgreSQL Client
 export const pgClient = postgres(connectionString, {
   max: 10,
   idle_timeout: 20,
-  connect_timeout: 5,
+  connect_timeout: 15,
+  ssl: requiresSsl ? 'require' : false,
   onnotice: () => {}, // Suppress notice logs
 });
 

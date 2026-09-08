@@ -11,13 +11,29 @@ const __dirname = path.dirname(__filename);
 
 const connectionString = process.env.DATABASE_URL || 'postgresql://postgres:kashi2002@localhost:5432/farm';
 
+const isProduction = process.env.NODE_ENV === 'production';
+const requiresSsl =
+  connectionString.includes('sslmode=require') ||
+  connectionString.includes('ssl=true') ||
+  connectionString.includes('render.com') ||
+  connectionString.includes('supabase.co') ||
+  connectionString.includes('neon.tech') ||
+  (isProduction && !connectionString.includes('localhost') && !connectionString.includes('127.0.0.1'));
+
 async function setupDatabase() {
-  console.log(`Connecting to PostgreSQL at: ${connectionString.replace(/:[^:@]+@/, ':****@')} ...`);
-  const sql = postgres(connectionString, { max: 1 });
+  console.log(`Connecting to PostgreSQL at: ${connectionString.replace(/:[^:@]+@/, ':****@')} ... (SSL: ${requiresSsl ? 'enabled' : 'disabled'})`);
+  const sql = postgres(connectionString, {
+    max: 1,
+    connect_timeout: 15,
+    ssl: requiresSsl ? 'require' : false,
+  });
 
   try {
     // 1. Run Schema SQL
-    const schemaPath = path.join(__dirname, 'schema.sql');
+    let schemaPath = path.join(__dirname, 'schema.sql');
+    if (!fs.existsSync(schemaPath)) {
+      schemaPath = path.join(__dirname, '../../src/db/schema.sql');
+    }
     console.log(`Reading SQL schema from: ${schemaPath}`);
     const schemaSql = fs.readFileSync(schemaPath, 'utf8');
 

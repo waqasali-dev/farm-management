@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: farm-management-backend
+    runtime: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: FRONTEND_URL
+        value: "*"
+      - key: FALLBACK_STORAGE
+        value: "true"
+      # Configure these in Render Dashboard or attach a managed Render PostgreSQL:
+      - key: DATABASE_URL
+        sync: false
+      # Upstash Redis REST endpoint & token for distributed caching:
+      - key: UPSTASH_REDIS_REST_URL
+        sync: false
+      - key: UPSTASH_REDIS_REST_TOKEN
+        sync: false

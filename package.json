@@ -8,16 +8,21 @@
     "frontend"
   ],
   "scripts": {
-    "start": "npm run dev",
+    "start": "npm run start --workspace=backend",
     "dev": "npm run dev --workspace=backend & npm run dev --workspace=frontend",
     "dev:backend": "npm run dev --workspace=backend",
     "dev:frontend": "npm run dev --workspace=frontend",
     "build": "npm run build --workspaces",
+    "build:backend": "npm run build --workspace=backend",
     "test": "npm run test --workspaces",
     "typecheck": "npm run typecheck --workspaces",
+    "db:setup": "npm run db:setup --workspace=backend",
     "db:generate": "npm run db:generate --workspace=backend",
     "db:migrate": "npm run db:migrate --workspace=backend",
     "db:seed": "npm run db:seed --workspace=backend"
+  },
+  "engines": {
+    "node": ">=20.0.0"
   },
   "keywords": [
     "farm-management",
