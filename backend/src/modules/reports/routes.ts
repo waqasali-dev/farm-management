@@ -258,12 +258,14 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
 
         let stockBags = 0;
         const rows = records.map((r) => {
-          stockBags += r.arrivalBags - r.usedBags;
+          stockBags += r.arrivalBags - r.usedBags - (r.returnedBags || 0);
           return {
             date: r.date,
             arrivalBags: r.arrivalBags,
             usedBags: r.usedBags,
+            returnedBags: r.returnedBags || 0,
             usedKg: r.usedBags * 50,
+            returnedKg: (r.returnedBags || 0) * 50,
             stockBags,
             stockKg: stockBags * 50,
           };
@@ -283,14 +285,144 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
 
     let stockBags = 0;
     const rows = records.map((r) => {
-      stockBags += r.arrivalBags - r.usedBags;
+      stockBags += r.arrivalBags - r.usedBags - (r.returnedBags || 0);
       return {
         date: r.date,
         arrivalBags: r.arrivalBags,
         usedBags: r.usedBags,
+        returnedBags: r.returnedBags || 0,
         usedKg: r.usedBags * 50,
+        returnedKg: (r.returnedBags || 0) * 50,
         stockBags,
         stockKg: stockBags * 50,
+      };
+    });
+
+    const fallbackResult = { rows };
+    await setCache(cacheKey, fallbackResult, 300);
+    return successResponse(fallbackResult);
+  });
+
+  // GET /api/v1/flocks/:flockId/reports/chips
+  fastify.get('/flocks/:flockId/reports/chips', async (request, reply) => {
+    const { flockId } = request.params as { flockId: string };
+    const cacheKey = `flock:${flockId}:report:chips`;
+
+    const cached = await getCache<any>(cacheKey);
+    if (cached) {
+      return successResponse(cached);
+    }
+
+    if (isDatabaseConnected()) {
+      try {
+        const records = await db
+          .select()
+          .from(schema.chipsDailyRecords)
+          .where(eq(schema.chipsDailyRecords.flockId, flockId))
+          .orderBy(asc(schema.chipsDailyRecords.date));
+
+        let stockBags = 0;
+        const rows = records.map((r) => {
+          stockBags += r.arrivalBags - r.usedBags - (r.returnedBags || 0);
+          return {
+            date: r.date,
+            arrivalBags: r.arrivalBags,
+            usedBags: r.usedBags,
+            returnedBags: r.returnedBags || 0,
+            stockBags,
+          };
+        });
+
+        const result = { rows };
+        await setCache(cacheKey, result, 300);
+        return successResponse(result);
+      } catch (err) {
+        // Fall through
+      }
+    }
+
+    const records = mockStore.chipsRecords
+      .filter((r) => r.flockId === flockId)
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    let stockBags = 0;
+    const rows = records.map((r) => {
+      stockBags += r.arrivalBags - r.usedBags - (r.returnedBags || 0);
+      return {
+        date: r.date,
+        arrivalBags: r.arrivalBags,
+        usedBags: r.usedBags,
+        returnedBags: r.returnedBags || 0,
+        stockBags,
+      };
+    });
+
+    const fallbackResult = { rows };
+    await setCache(cacheKey, fallbackResult, 300);
+    return successResponse(fallbackResult);
+  });
+
+  // GET /api/v1/flocks/:flockId/reports/trays
+  fastify.get('/flocks/:flockId/reports/trays', async (request, reply) => {
+    const { flockId } = request.params as { flockId: string };
+    const cacheKey = `flock:${flockId}:report:trays`;
+
+    const cached = await getCache<any>(cacheKey);
+    if (cached) {
+      return successResponse(cached);
+    }
+
+    if (isDatabaseConnected()) {
+      try {
+        const records = await db
+          .select()
+          .from(schema.trayDailyRecords)
+          .where(eq(schema.trayDailyRecords.flockId, flockId))
+          .orderBy(asc(schema.trayDailyRecords.date));
+
+        let plasticStock = 0;
+        let cardboardStock = 0;
+        const rows = records.map((r) => {
+          plasticStock += r.plasticReceived - r.plasticUsed;
+          cardboardStock += r.cardboardReceived - r.cardboardUsed - r.cardboardWasted;
+          return {
+            date: r.date,
+            plasticReceived: r.plasticReceived,
+            plasticUsed: r.plasticUsed,
+            plasticStock,
+            cardboardReceived: r.cardboardReceived,
+            cardboardUsed: r.cardboardUsed,
+            cardboardWasted: r.cardboardWasted,
+            cardboardStock,
+          };
+        });
+
+        const result = { rows };
+        await setCache(cacheKey, result, 300);
+        return successResponse(result);
+      } catch (err) {
+        // Fall through
+      }
+    }
+
+    const records = mockStore.trayRecords
+      .filter((r) => r.flockId === flockId)
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    let plasticStock = 0;
+    let cardboardStock = 0;
+    const rows = records.map((r) => {
+      plasticStock += r.plasticReceived - r.plasticUsed;
+      cardboardStock += r.cardboardReceived - r.cardboardUsed - r.cardboardWasted;
+      return {
+        date: r.date,
+        plasticReceived: r.plasticReceived,
+        plasticUsed: r.plasticUsed,
+        plasticStock,
+        cardboardReceived: r.cardboardReceived,
+        cardboardUsed: r.cardboardUsed,
+        cardboardWasted: r.cardboardWasted,
+        cardboardStock,
       };
     });
 

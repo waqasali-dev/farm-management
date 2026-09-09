@@ -110,6 +110,7 @@ CREATE TABLE IF NOT EXISTS feed_daily_records (
     date DATE NOT NULL,
     arrival_bags INTEGER DEFAULT 0 NOT NULL CHECK (arrival_bags >= 0),
     used_bags INTEGER DEFAULT 0 NOT NULL CHECK (used_bags >= 0),
+    returned_bags INTEGER DEFAULT 0 NOT NULL CHECK (returned_bags >= 0),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
 );
@@ -312,3 +313,60 @@ CREATE TRIGGER enforce_vaccine_closed_flock
 BEFORE INSERT OR UPDATE ON vaccination_records
 FOR EACH ROW
 EXECUTE FUNCTION enforce_closed_flock_protection();
+
+-- Table 13: chips_daily_records (Calcium Supplement Bags)
+CREATE TABLE IF NOT EXISTS chips_daily_records (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    farm_id UUID NOT NULL REFERENCES farms(id) ON DELETE CASCADE,
+    flock_id UUID NOT NULL REFERENCES flocks(id) ON DELETE CASCADE,
+    date DATE NOT NULL,
+    arrival_bags INTEGER DEFAULT 0 NOT NULL CHECK (arrival_bags >= 0),
+    used_bags INTEGER DEFAULT 0 NOT NULL CHECK (used_bags >= 0),
+    returned_bags INTEGER DEFAULT 0 NOT NULL CHECK (returned_bags >= 0),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_chips_flock_date ON chips_daily_records(flock_id, date);
+CREATE INDEX IF NOT EXISTS idx_chips_flock_id ON chips_daily_records(flock_id);
+CREATE INDEX IF NOT EXISTS idx_chips_date ON chips_daily_records(date);
+
+CREATE TRIGGER set_chips_updated_at
+BEFORE UPDATE ON chips_daily_records
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER enforce_chips_closed_flock
+BEFORE INSERT OR UPDATE ON chips_daily_records
+FOR EACH ROW
+EXECUTE FUNCTION enforce_closed_flock_protection();
+
+-- Table 14: tray_daily_records (Plastic & Cardboard Trays Inventory)
+CREATE TABLE IF NOT EXISTS tray_daily_records (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    farm_id UUID NOT NULL REFERENCES farms(id) ON DELETE CASCADE,
+    flock_id UUID NOT NULL REFERENCES flocks(id) ON DELETE CASCADE,
+    date DATE NOT NULL,
+    plastic_received INTEGER DEFAULT 0 NOT NULL CHECK (plastic_received >= 0),
+    plastic_used INTEGER DEFAULT 0 NOT NULL CHECK (plastic_used >= 0),
+    cardboard_received INTEGER DEFAULT 0 NOT NULL CHECK (cardboard_received >= 0),
+    cardboard_used INTEGER DEFAULT 0 NOT NULL CHECK (cardboard_used >= 0),
+    cardboard_wasted INTEGER DEFAULT 0 NOT NULL CHECK (cardboard_wasted >= 0),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_trays_flock_date ON tray_daily_records(flock_id, date);
+CREATE INDEX IF NOT EXISTS idx_trays_flock_id ON tray_daily_records(flock_id);
+CREATE INDEX IF NOT EXISTS idx_trays_date ON tray_daily_records(date);
+
+CREATE TRIGGER set_trays_updated_at
+BEFORE UPDATE ON tray_daily_records
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER enforce_trays_closed_flock
+BEFORE INSERT OR UPDATE ON tray_daily_records
+FOR EACH ROW
+EXECUTE FUNCTION enforce_closed_flock_protection();
+

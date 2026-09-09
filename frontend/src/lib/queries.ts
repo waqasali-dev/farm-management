@@ -101,7 +101,7 @@ export function useSaveDailyRecordMutation(flockId: string, date: string) {
 // 6. Reports Queries
 export function useReportsQuery(
   flockId?: string,
-  reportType: 'summary' | 'mortality' | 'feed' | 'eggs' | 'diesel' | 'weight' | 'health' = 'summary'
+  reportType: 'summary' | 'mortality' | 'feed' | 'chips' | 'trays' | 'eggs' | 'diesel' | 'weight' | 'health' = 'summary'
 ) {
   return useQuery<any>({
     queryKey: queryKeys.reports(flockId || '', reportType),
@@ -109,6 +109,8 @@ export function useReportsQuery(
       if (reportType === 'summary') return api.getSummaryReport(flockId!);
       if (reportType === 'mortality') return api.getMortalityReport(flockId!);
       if (reportType === 'feed') return api.getFeedReport(flockId!);
+      if (reportType === 'chips') return api.getChipsReport(flockId!);
+      if (reportType === 'trays') return api.getTraysReport(flockId!);
       if (reportType === 'eggs') return api.getEggsReport(flockId!);
       if (reportType === 'diesel') return api.getDieselReport(flockId!);
       if (reportType === 'weight') return api.getWeightReport(flockId!);

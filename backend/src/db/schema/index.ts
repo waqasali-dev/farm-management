@@ -63,6 +63,7 @@ export const feedDailyRecords = pgTable('feed_daily_records', {
   date: date('date').notNull(),
   arrivalBags: integer('arrival_bags').default(0).notNull(),
   usedBags: integer('used_bags').default(0).notNull(),
+  returnedBags: integer('returned_bags').default(0).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (t) => [
@@ -170,6 +171,38 @@ export const vaccinationRecords = pgTable('vaccination_records', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
+// 13. Chips Daily Records (Calcium Bags)
+export const chipsDailyRecords = pgTable('chips_daily_records', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  farmId: uuid('farm_id').references(() => farms.id).notNull(),
+  flockId: uuid('flock_id').references(() => flocks.id, { onDelete: 'cascade' }).notNull(),
+  date: date('date').notNull(),
+  arrivalBags: integer('arrival_bags').default(0).notNull(),
+  usedBags: integer('used_bags').default(0).notNull(),
+  returnedBags: integer('returned_bags').default(0).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('flock_chips_date_idx').on(t.flockId, t.date),
+]);
+
+// 14. Tray Daily Records (Plastic & Cardboard Trays Inventory)
+export const trayDailyRecords = pgTable('tray_daily_records', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  farmId: uuid('farm_id').references(() => farms.id).notNull(),
+  flockId: uuid('flock_id').references(() => flocks.id, { onDelete: 'cascade' }).notNull(),
+  date: date('date').notNull(),
+  plasticReceived: integer('plastic_received').default(0).notNull(),
+  plasticUsed: integer('plastic_used').default(0).notNull(),
+  cardboardReceived: integer('cardboard_received').default(0).notNull(),
+  cardboardUsed: integer('cardboard_used').default(0).notNull(),
+  cardboardWasted: integer('cardboard_wasted').default(0).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('flock_trays_date_idx').on(t.flockId, t.date),
+]);
+
 // Relations
 export const farmsRelations = relations(farms, ({ many }) => ({
   flocks: many(flocks),
@@ -180,6 +213,8 @@ export const flocksRelations = relations(flocks, ({ one, many }) => ({
   farm: one(farms, { fields: [flocks.farmId], references: [farms.id] }),
   birdRecords: many(birdDailyRecords),
   feedRecords: many(feedDailyRecords),
+  chipsRecords: many(chipsDailyRecords),
+  trayRecords: many(trayDailyRecords),
   eggRecords: many(eggDailyRecords),
   eggUsageRecords: many(eggUsageRecords),
   dieselRecords: many(dieselDailyRecords),

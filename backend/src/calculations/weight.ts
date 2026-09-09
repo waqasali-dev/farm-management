@@ -1,4 +1,4 @@
-import { differenceInCalendarDays, parseISO } from 'date-fns';
+import { differenceInCalendarDays, parseISO, subDays, format } from 'date-fns';
 
 /**
  * Bird Age & Weight Week/Day Calculation (Section 16, 17)
@@ -44,5 +44,30 @@ export function calculateBirdAge(
     day,
     totalDays: safeTotalDays,
     formatted,
+  };
+}
+
+/**
+ * Reverse calculate estimated start date from a known past date and age
+ * e.g. If on 2026-05-05 bird was Week 17, Day 3:
+ * elapsedDays = (17 - 1) * 7 + 3 = 115 days
+ * startDate = 2026-05-05 - 115 days
+ */
+export function calculateStartDateFromAge(
+  referenceDateInput: Date | string,
+  week: number,
+  day: number
+): {
+  startDate: string; // YYYY-MM-DD
+  elapsedDays: number;
+} {
+  const refDate = typeof referenceDateInput === 'string' ? parseISO(referenceDateInput) : referenceDateInput;
+  const safeWeek = Math.max(1, Math.floor(Number(week) || 1));
+  const safeDay = Math.max(0, Math.min(6, Math.floor(Number(day) || 0)));
+  const elapsedDays = (safeWeek - 1) * 7 + safeDay;
+  const startDateObj = subDays(refDate, elapsedDays);
+  return {
+    startDate: format(startDateObj, 'yyyy-MM-dd'),
+    elapsedDays,
   };
 }

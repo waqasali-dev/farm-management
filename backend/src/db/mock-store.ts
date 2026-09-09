@@ -54,6 +54,33 @@ export interface MockFeedRecord {
   date: string;
   arrivalBags: number;
   usedBags: number;
+  returnedBags: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface MockChipsRecord {
+  id: string;
+  farmId: string;
+  flockId: string;
+  date: string;
+  arrivalBags: number;
+  usedBags: number;
+  returnedBags: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface MockTrayRecord {
+  id: string;
+  farmId: string;
+  flockId: string;
+  date: string;
+  plasticReceived: number;
+  plasticUsed: number;
+  cardboardReceived: number;
+  cardboardUsed: number;
+  cardboardWasted: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -226,6 +253,7 @@ class MockDataStore {
       date: '2026-09-05',
       arrivalBags: 300,
       usedBags: 210,
+      returnedBags: 0,
       createdAt: new Date('2026-09-05'),
       updatedAt: new Date('2026-09-05'),
     },
@@ -236,6 +264,7 @@ class MockDataStore {
       date: '2026-09-06',
       arrivalBags: 0,
       usedBags: 215,
+      returnedBags: 0,
       createdAt: new Date('2026-09-06'),
       updatedAt: new Date('2026-09-06'),
     },
@@ -246,6 +275,85 @@ class MockDataStore {
       date: '2026-09-07',
       arrivalBags: 200,
       usedBags: 218,
+      returnedBags: 0,
+      createdAt: new Date('2026-09-07'),
+      updatedAt: new Date('2026-09-07'),
+    },
+  ];
+
+  chipsRecords: MockChipsRecord[] = [
+    {
+      id: 'ch-01',
+      farmId: DEMO_FARM_ID,
+      flockId: FLOCK_1_ID,
+      date: '2026-09-05',
+      arrivalBags: 50,
+      usedBags: 10,
+      returnedBags: 0,
+      createdAt: new Date('2026-09-05'),
+      updatedAt: new Date('2026-09-05'),
+    },
+    {
+      id: 'ch-02',
+      farmId: DEMO_FARM_ID,
+      flockId: FLOCK_1_ID,
+      date: '2026-09-06',
+      arrivalBags: 0,
+      usedBags: 12,
+      returnedBags: 0,
+      createdAt: new Date('2026-09-06'),
+      updatedAt: new Date('2026-09-06'),
+    },
+    {
+      id: 'ch-03',
+      farmId: DEMO_FARM_ID,
+      flockId: FLOCK_1_ID,
+      date: '2026-09-07',
+      arrivalBags: 20,
+      usedBags: 10,
+      returnedBags: 0,
+      createdAt: new Date('2026-09-07'),
+      updatedAt: new Date('2026-09-07'),
+    },
+  ];
+
+  trayRecords: MockTrayRecord[] = [
+    {
+      id: 'tr-01',
+      farmId: DEMO_FARM_ID,
+      flockId: FLOCK_1_ID,
+      date: '2026-09-05',
+      plasticReceived: 500,
+      plasticUsed: 120,
+      cardboardReceived: 1000,
+      cardboardUsed: 250,
+      cardboardWasted: 15,
+      createdAt: new Date('2026-09-05'),
+      updatedAt: new Date('2026-09-05'),
+    },
+    {
+      id: 'tr-02',
+      farmId: DEMO_FARM_ID,
+      flockId: FLOCK_1_ID,
+      date: '2026-09-06',
+      plasticReceived: 0,
+      plasticUsed: 140,
+      cardboardReceived: 0,
+      cardboardUsed: 260,
+      cardboardWasted: 10,
+      createdAt: new Date('2026-09-06'),
+      updatedAt: new Date('2026-09-06'),
+    },
+    {
+      id: 'tr-03',
+      farmId: DEMO_FARM_ID,
+      flockId: FLOCK_1_ID,
+      date: '2026-09-07',
+      plasticReceived: 200,
+      plasticUsed: 130,
+      cardboardReceived: 500,
+      cardboardUsed: 240,
+      cardboardWasted: 12,
       createdAt: new Date('2026-09-07'),
       updatedAt: new Date('2026-09-07'),
     },

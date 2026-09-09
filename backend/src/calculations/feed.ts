@@ -21,8 +21,12 @@ export function calculateRemainingFeedKg(totalArrivalKg: number, totalUsedKg: nu
   return remaining;
 }
 
-export function calculateRemainingFeedBags(totalArrivalBags: number, totalUsedBags: number): number {
-  const remaining = totalArrivalBags - totalUsedBags;
+export function calculateRemainingFeedBags(
+  totalArrivalBags: number,
+  totalUsedBags: number,
+  totalReturnedBags: number = 0
+): number {
+  const remaining = totalArrivalBags - totalUsedBags - totalReturnedBags;
   if (remaining < 0) {
     throw new Error('Negative feed inventory is not allowed');
   }

@@ -10,6 +10,7 @@ import {
   calculateProductionPercentage,
   calculateRemainingDieselLiters,
   calculateBirdAge,
+  calculateStartDateFromAge,
   calculateWaterPerBirdMl,
 } from '../src/calculations/index.js';
 
@@ -40,13 +41,14 @@ describe('Calculation Engine (Section 53)', () => {
       expect(bagsToKg(1)).toBe(50);
     });
 
-    it('calculates remaining feed bags', () => {
-      const remaining = calculateRemainingFeedBags(500, 210);
-      expect(remaining).toBe(290);
+    it('calculates remaining feed bags with returned bags', () => {
+      // 500 arrived - 210 used - 30 returned = 260 bags remaining
+      const remaining = calculateRemainingFeedBags(500, 210, 30);
+      expect(remaining).toBe(260);
     });
 
-    it('prevents negative feed inventory', () => {
-      expect(() => calculateRemainingFeedBags(100, 150)).toThrow();
+    it('prevents negative feed inventory including returns', () => {
+      expect(() => calculateRemainingFeedBags(100, 80, 30)).toThrow();
     });
 
     it('calculates feed consumption in grams per bird', () => {
@@ -126,6 +128,23 @@ describe('Calculation Engine (Section 53)', () => {
       const userExample = calculateBirdAge('2026-04-20', '2026-04-05');
       expect(userExample.week).toBe(3);
       expect(userExample.formatted).toContain('W03-');
+    });
+
+    it('calculates flock start date from reference date and known age (Week 17, Day 03 on 2026-05-05)', () => {
+      // Elapsed days = (17 - 1) * 7 + 3 = 112 + 3 = 115 days
+      const result = calculateStartDateFromAge('2026-05-05', 17, 3);
+      expect(result.elapsedDays).toBe(115);
+      expect(result.startDate).toBe('2026-01-10');
+
+      // Verify reverse calculation matches Week 17 and 115 totalDays
+      const ageAtRef = calculateBirdAge('2026-05-05', result.startDate);
+      expect(ageAtRef.week).toBe(17);
+      expect(ageAtRef.totalDays).toBe(115);
+
+      // Verify calculation for today (2026-09-09)
+      const ageToday = calculateBirdAge('2026-09-09', result.startDate);
+      expect(ageToday.totalDays).toBe(242);
+      expect(ageToday.week).toBe(35);
     });
   });
 

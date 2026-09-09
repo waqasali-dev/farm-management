@@ -300,6 +300,7 @@ export const flockRoutes: FastifyPluginAsync = async (fastify) => {
           date: baselineDate,
           arrivalBags: totalReceivedFeed,
           usedBags: priorUsedFeed,
+          returnedBags: 0,
           createdAt: new Date(),
           updatedAt: new Date(),
         });

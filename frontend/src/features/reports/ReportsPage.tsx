@@ -14,7 +14,7 @@ interface OutletContextType {
 export const ReportsPage: React.FC = () => {
   const { activeFlock } = useOutletContext<OutletContextType>();
   const [reportType, setReportType] = useState<
-    'summary' | 'mortality' | 'feed' | 'eggs' | 'diesel' | 'weight' | 'health'
+    'summary' | 'mortality' | 'feed' | 'chips' | 'trays' | 'eggs' | 'diesel' | 'weight' | 'health'
   >('summary');
 
   // TanStack Query for Reports (Section 30, 31)
@@ -62,6 +62,8 @@ export const ReportsPage: React.FC = () => {
               { id: 'summary', label: 'Summary' },
               { id: 'mortality', label: 'Mortality' },
               { id: 'feed', label: 'Feed' },
+              { id: 'chips', label: 'Chips' },
+              { id: 'trays', label: 'Trays' },
               ...(activeFlock.eggTrackingEnabled ? [{ id: 'eggs', label: 'Eggs' }] : []),
               { id: 'diesel', label: 'Diesel' },
               { id: 'weight', label: 'Weight & Age' },
@@ -207,7 +209,7 @@ export const ReportsPage: React.FC = () => {
               )}
 
               {reportType === 'feed' && (
-                <table className="w-full text-left border-collapse text-xs font-mono min-w-[600px]">
+                <table className="w-full text-left border-collapse text-xs font-mono min-w-[750px]">
                   <thead>
                     <tr className="border-b border-black bg-zinc-100 text-[10px] uppercase text-zinc-600">
                       <th className="py-2.5 px-3">Date</th>
@@ -215,6 +217,8 @@ export const ReportsPage: React.FC = () => {
                       <th className="py-2.5 px-3">Arrival (Kg)</th>
                       <th className="py-2.5 px-3">Used (Bags)</th>
                       <th className="py-2.5 px-3">Used (Kg)</th>
+                      <th className="py-2.5 px-3">Returned (Bags)</th>
+                      <th className="py-2.5 px-3">Returned (Kg)</th>
                       <th className="py-2.5 px-3">Closing Stock (Bags)</th>
                       <th className="py-2.5 px-3">Closing Stock (Kg)</th>
                     </tr>
@@ -228,14 +232,96 @@ export const ReportsPage: React.FC = () => {
                           <td className="py-2 px-3">{(row.arrivalBags * 50).toLocaleString()}</td>
                           <td className="py-2 px-3">{row.usedBags}</td>
                           <td className="py-2 px-3">{row.usedKg.toLocaleString()}</td>
+                          <td className="py-2 px-3">{row.returnedBags ?? 0}</td>
+                          <td className="py-2 px-3">{((row.returnedBags ?? 0) * 50).toLocaleString()}</td>
                           <td className="py-2 px-3 font-bold">{row.stockBags}</td>
                           <td className="py-2 px-3 font-bold">{row.stockKg.toLocaleString()}</td>
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={7} className="py-8 text-center text-zinc-400">
+                        <td colSpan={9} className="py-8 text-center text-zinc-400">
                           No feed records found.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              )}
+
+              {reportType === 'chips' && (
+                <table className="w-full text-left border-collapse text-xs font-mono min-w-[650px]">
+                  <thead>
+                    <tr className="border-b border-black bg-zinc-100 text-[10px] uppercase text-zinc-600">
+                      <th className="py-2.5 px-3">Date</th>
+                      <th className="py-2.5 px-3">Arrival (Bags)</th>
+                      <th className="py-2.5 px-3">Used (Bags)</th>
+                      <th className="py-2.5 px-3">Returned (Bags)</th>
+                      <th className="py-2.5 px-3">Closing Stock (Bags)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-200">
+                    {data?.rows && data.rows.length > 0 ? (
+                      data.rows.map((row: any, i: number) => (
+                        <tr key={i} className="hover:bg-zinc-50">
+                          <td className="py-2 px-3 font-bold">{row.date}</td>
+                          <td className="py-2 px-3">{row.arrivalBags}</td>
+                          <td className="py-2 px-3">{row.usedBags}</td>
+                          <td className="py-2 px-3">{row.returnedBags ?? 0}</td>
+                          <td className="py-2 px-3 font-bold">{row.stockBags}</td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={5} className="py-8 text-center text-zinc-400">
+                          No chips records found.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              )}
+
+              {reportType === 'trays' && (
+                <table className="w-full text-left border-collapse text-xs font-mono min-w-[750px]">
+                  <thead>
+                    <tr className="border-b border-black bg-zinc-200 text-[10px] uppercase text-black font-bold">
+                      <th className="py-2.5 px-3" rowSpan={2}>Date</th>
+                      <th className="py-2 px-3 text-center border-l border-zinc-300 bg-zinc-100" colSpan={3}>
+                        Plastic Trays (Reusable)
+                      </th>
+                      <th className="py-2 px-3 text-center border-l border-zinc-300 bg-zinc-100" colSpan={4}>
+                        Cardboard Trays (Disposable)
+                      </th>
+                    </tr>
+                    <tr className="border-b border-black bg-zinc-100 text-[10px] uppercase text-zinc-600">
+                      <th className="py-1.5 px-3 border-l border-zinc-300">Received</th>
+                      <th className="py-1.5 px-3">Used</th>
+                      <th className="py-1.5 px-3 font-bold">Stock</th>
+                      <th className="py-1.5 px-3 border-l border-zinc-300">Received</th>
+                      <th className="py-1.5 px-3">Used</th>
+                      <th className="py-1.5 px-3">Wasted</th>
+                      <th className="py-1.5 px-3 font-bold">Stock</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-200">
+                    {data?.rows && data.rows.length > 0 ? (
+                      data.rows.map((row: any, i: number) => (
+                        <tr key={i} className="hover:bg-zinc-50">
+                          <td className="py-2 px-3 font-bold">{row.date}</td>
+                          <td className="py-2 px-3 border-l border-zinc-200">{row.plasticReceived}</td>
+                          <td className="py-2 px-3">{row.plasticUsed}</td>
+                          <td className="py-2 px-3 font-bold">{row.plasticStock}</td>
+                          <td className="py-2 px-3 border-l border-zinc-200">{row.cardboardReceived}</td>
+                          <td className="py-2 px-3">{row.cardboardUsed}</td>
+                          <td className="py-2 px-3 text-red-600 font-semibold">{row.cardboardWasted}</td>
+                          <td className="py-2 px-3 font-bold">{row.cardboardStock}</td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={8} className="py-8 text-center text-zinc-400">
+                          No tray records found.
                         </td>
                       </tr>
                     )}

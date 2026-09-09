@@ -110,6 +110,12 @@ export const api = {
   getDieselReport: (flockId: string) =>
     fetchJson<{ flock?: Flock; rows: any[] }>(`/flocks/${flockId}/reports/diesel`),
 
+  getChipsReport: (flockId: string) =>
+    fetchJson<{ flock?: Flock; rows: any[] }>(`/flocks/${flockId}/reports/chips`),
+
+  getTraysReport: (flockId: string) =>
+    fetchJson<{ flock?: Flock; rows: any[] }>(`/flocks/${flockId}/reports/trays`),
+
   getWeightReport: (flockId: string) =>
     fetchJson<{ flock?: Flock; rows: any[] }>(`/flocks/${flockId}/reports/weight`),
 

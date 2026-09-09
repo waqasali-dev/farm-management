@@ -105,6 +105,19 @@ export interface UnifiedDailyRecord {
   feed: {
     arrivalBags: number;
     usedBags: number;
+    returnedBags?: number;
+  };
+  chips?: {
+    arrivalBags: number;
+    usedBags: number;
+    returnedBags: number;
+  };
+  trays?: {
+    plasticReceived: number;
+    plasticUsed: number;
+    cardboardReceived: number;
+    cardboardUsed: number;
+    cardboardWasted: number;
   };
   eggs: {
     productionPeti: number;
@@ -142,6 +155,15 @@ export interface UnifiedDailyRecord {
   priorBalances?: {
     previousFeedStockBags: number;
     totalArrivalBagsTillNow: number;
+    totalReturnedBagsTillNow?: number;
+    previousChipsStockBags?: number;
+    totalChipsArrivalBagsTillNow?: number;
+    totalChipsReturnedBagsTillNow?: number;
+    previousPlasticStockTrays?: number;
+    totalPlasticReceivedTrays?: number;
+    previousCardboardStockTrays?: number;
+    totalCardboardReceivedTrays?: number;
+    totalCardboardWastedTrays?: number;
     previousEggStock: {
       peti: number;
       trays: number;

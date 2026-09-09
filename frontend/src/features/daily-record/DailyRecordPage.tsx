@@ -68,6 +68,17 @@ export const DailyRecordPage: React.FC = () => {
 
   const [feedArrivalBags, setFeedArrivalBags] = useState<number>(0);
   const [feedUsedBags, setFeedUsedBags] = useState<number>(0);
+  const [feedReturnedBags, setFeedReturnedBags] = useState<number>(0);
+
+  const [chipsArrivalBags, setChipsArrivalBags] = useState<number>(0);
+  const [chipsUsedBags, setChipsUsedBags] = useState<number>(0);
+  const [chipsReturnedBags, setChipsReturnedBags] = useState<number>(0);
+
+  const [plasticReceived, setPlasticReceived] = useState<number>(0);
+  const [plasticUsed, setPlasticUsed] = useState<number>(0);
+  const [cardboardReceived, setCardboardReceived] = useState<number>(0);
+  const [cardboardUsed, setCardboardUsed] = useState<number>(0);
+  const [cardboardWasted, setCardboardWasted] = useState<number>(0);
 
   const [prodPeti, setProdPeti] = useState<number>(0);
   const [prodTrays, setProdTrays] = useState<number>(0);
@@ -95,7 +106,7 @@ export const DailyRecordPage: React.FC = () => {
 
   // Active section tab
   const [activeTab, setActiveTab] = useState<
-    'birds' | 'feed' | 'eggs' | 'diesel' | 'weight' | 'medicine' | 'vaccines'
+    'birds' | 'feed' | 'chips' | 'trays' | 'eggs' | 'diesel' | 'weight' | 'medicine' | 'vaccines'
   >('birds');
 
   // Populate local form state when query resolves
@@ -108,6 +119,17 @@ export const DailyRecordPage: React.FC = () => {
 
     setFeedArrivalBags(recordData.feed.arrivalBags);
     setFeedUsedBags(recordData.feed.usedBags);
+    setFeedReturnedBags(recordData.feed.returnedBags ?? 0);
+
+    setChipsArrivalBags(recordData.chips?.arrivalBags ?? 0);
+    setChipsUsedBags(recordData.chips?.usedBags ?? 0);
+    setChipsReturnedBags(recordData.chips?.returnedBags ?? 0);
+
+    setPlasticReceived(recordData.trays?.plasticReceived ?? 0);
+    setPlasticUsed(recordData.trays?.plasticUsed ?? 0);
+    setCardboardReceived(recordData.trays?.cardboardReceived ?? 0);
+    setCardboardUsed(recordData.trays?.cardboardUsed ?? 0);
+    setCardboardWasted(recordData.trays?.cardboardWasted ?? 0);
 
     setProdPeti(recordData.eggs.productionPeti);
     setProdTrays(recordData.eggs.productionTrays);
@@ -158,6 +180,19 @@ export const DailyRecordPage: React.FC = () => {
         feed: {
           arrivalBags: Number(feedArrivalBags) || 0,
           usedBags: Number(feedUsedBags) || 0,
+          returnedBags: Number(feedReturnedBags) || 0,
+        },
+        chips: {
+          arrivalBags: Number(chipsArrivalBags) || 0,
+          usedBags: Number(chipsUsedBags) || 0,
+          returnedBags: Number(chipsReturnedBags) || 0,
+        },
+        trays: {
+          plasticReceived: Number(plasticReceived) || 0,
+          plasticUsed: Number(plasticUsed) || 0,
+          cardboardReceived: Number(cardboardReceived) || 0,
+          cardboardUsed: Number(cardboardUsed) || 0,
+          cardboardWasted: Number(cardboardWasted) || 0,
         },
         eggs: flock.eggTrackingEnabled
           ? {
@@ -243,12 +278,57 @@ export const DailyRecordPage: React.FC = () => {
   // Prior Balances from API
   const priorBalances = recordData?.priorBalances;
 
-  // Feed Calculations (Requirements 1.1 - 1.5)
+  // Feed Calculations (Requirements 1.1 - 1.5 + Returns)
   const previousFeedStockBags = priorBalances?.previousFeedStockBags ?? 0;
   const recordedTodayArrivalBags = recordData?.feed?.arrivalBags ?? 0;
   const baseArrivalBags = Math.max(0, (priorBalances?.totalArrivalBagsTillNow ?? 0) - recordedTodayArrivalBags);
   const currentTotalArrivalBagsTillNow = baseArrivalBags + (Number(feedArrivalBags) || 0);
-  const currentRemainingFeedBags = Math.max(0, previousFeedStockBags + (Number(feedArrivalBags) || 0) - (Number(feedUsedBags) || 0));
+
+  const recordedTodayReturnedBags = recordData?.feed?.returnedBags ?? 0;
+  const baseReturnedBags = Math.max(0, (priorBalances?.totalReturnedBagsTillNow ?? 0) - recordedTodayReturnedBags);
+  const currentTotalReturnedBagsTillNow = baseReturnedBags + (Number(feedReturnedBags) || 0);
+
+  const currentRemainingFeedBags = Math.max(
+    0,
+    previousFeedStockBags + (Number(feedArrivalBags) || 0) - (Number(feedUsedBags) || 0) - (Number(feedReturnedBags) || 0)
+  );
+
+  // Chips (Calcium) Calculations
+  const previousChipsStockBags = priorBalances?.previousChipsStockBags ?? 0;
+  const recordedTodayChipsArrival = recordData?.chips?.arrivalBags ?? 0;
+  const baseChipsArrival = Math.max(0, (priorBalances?.totalChipsArrivalBagsTillNow ?? 0) - recordedTodayChipsArrival);
+  const currentTotalChipsArrivalTillNow = baseChipsArrival + (Number(chipsArrivalBags) || 0);
+
+  const recordedTodayChipsReturned = recordData?.chips?.returnedBags ?? 0;
+  const baseChipsReturned = Math.max(0, (priorBalances?.totalChipsReturnedBagsTillNow ?? 0) - recordedTodayChipsReturned);
+  const currentTotalChipsReturnedTillNow = baseChipsReturned + (Number(chipsReturnedBags) || 0);
+
+  const currentRemainingChipsBags = Math.max(
+    0,
+    previousChipsStockBags + (Number(chipsArrivalBags) || 0) - (Number(chipsUsedBags) || 0) - (Number(chipsReturnedBags) || 0)
+  );
+
+  // Plastic Trays Calculations
+  const previousPlasticStock = priorBalances?.previousPlasticStockTrays ?? 0;
+  const recordedTodayPlasticReceived = recordData?.trays?.plasticReceived ?? 0;
+  const basePlasticReceived = Math.max(0, (priorBalances?.totalPlasticReceivedTrays ?? 0) - recordedTodayPlasticReceived);
+  const currentTotalPlasticReceivedTillNow = basePlasticReceived + (Number(plasticReceived) || 0);
+  const currentRemainingPlasticTrays = Math.max(0, previousPlasticStock + (Number(plasticReceived) || 0) - (Number(plasticUsed) || 0));
+
+  // Cardboard Trays Calculations
+  const previousCardboardStock = priorBalances?.previousCardboardStockTrays ?? 0;
+  const recordedTodayCardboardReceived = recordData?.trays?.cardboardReceived ?? 0;
+  const baseCardboardReceived = Math.max(0, (priorBalances?.totalCardboardReceivedTrays ?? 0) - recordedTodayCardboardReceived);
+  const currentTotalCardboardReceivedTillNow = baseCardboardReceived + (Number(cardboardReceived) || 0);
+
+  const recordedTodayCardboardWasted = recordData?.trays?.cardboardWasted ?? 0;
+  const baseCardboardWasted = Math.max(0, (priorBalances?.totalCardboardWastedTrays ?? 0) - recordedTodayCardboardWasted);
+  const currentTotalCardboardWastedTillNow = baseCardboardWasted + (Number(cardboardWasted) || 0);
+
+  const currentRemainingCardboardTrays = Math.max(
+    0,
+    previousCardboardStock + (Number(cardboardReceived) || 0) - (Number(cardboardUsed) || 0) - (Number(cardboardWasted) || 0)
+  );
 
   // Egg Calculations (Requirements 2.1 - 2.5)
   const previousEggStock = priorBalances?.previousEggStock ?? { peti: 0, trays: 0, looseEggs: 0, formatted: '0 Peti, 0 Trays' };
@@ -411,11 +491,13 @@ export const DailyRecordPage: React.FC = () => {
         {[
           { key: 'birds', label: '1. Birds & Weather' },
           { key: 'feed', label: '2. Feed Inventory' },
-          ...(flock?.eggTrackingEnabled ? [{ key: 'eggs', label: '3. Egg Production & Usage' }] : []),
-          { key: 'diesel', label: '4. Diesel Fuel' },
-          { key: 'weight', label: '5. Weight & Age' },
-          { key: 'medicine', label: '6. Water & Medicine' },
-          { key: 'vaccines', label: '7. Vaccination' },
+          { key: 'chips', label: '3. Chips (Calcium)' },
+          { key: 'trays', label: '4. Trays (Plastic & Cardboard)' },
+          ...(flock?.eggTrackingEnabled ? [{ key: 'eggs', label: '5. Egg Production & Usage' }] : []),
+          { key: 'diesel', label: '6. Diesel Fuel' },
+          { key: 'weight', label: '7. Weight & Age' },
+          { key: 'medicine', label: '8. Water & Medicine' },
+          { key: 'vaccines', label: '9. Vaccination' },
         ].map((t) => (
           <button
             key={t.key}
@@ -557,14 +639,14 @@ export const DailyRecordPage: React.FC = () => {
               <div className="space-y-6">
                 <div className="border-b border-zinc-200 pb-3">
                   <h3 className="text-xs font-bold uppercase tracking-wider text-black">
-                    Daily Feed Arrivals & Usage
+                    Daily Feed Arrivals, Usage & Returns
                   </h3>
                   <p className="text-[11px] font-mono text-zinc-500">
                     1 standard bag = 50 kg (50,000 g). Feed consumption is derived strictly as grams per remaining bird.
                   </p>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div>
                     <label className="block text-xs font-bold uppercase tracking-wider mb-1">
                       Arrival Bags (Received Today)
@@ -598,10 +680,27 @@ export const DailyRecordPage: React.FC = () => {
                       = {estFeedKg.toLocaleString()} kg consumed
                     </span>
                   </div>
+
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider mb-1">
+                      Returned Bags (Feed Returned Today)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      disabled={flock?.status === 'closed'}
+                      value={feedReturnedBags}
+                      onChange={(e) => setFeedReturnedBags(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                      className="w-full border border-black px-3 py-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-black"
+                    />
+                    <span className="text-[10px] font-mono text-zinc-500 mt-1 block">
+                      = {(feedReturnedBags * 50).toLocaleString()} kg returned
+                    </span>
+                  </div>
                 </div>
 
-                {/* Live Feed Stock & Balance Callout (Requirements 1.1 - 1.5) */}
-                <div className="bg-zinc-100 border border-black p-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-xs font-mono">
+                {/* Live Feed Stock & Balance Callout */}
+                <div className="bg-zinc-100 border border-black p-4 grid grid-cols-2 md:grid-cols-5 gap-4 text-xs font-mono">
                   <div>
                     <span className="text-zinc-500 block text-[10px] uppercase">Prev. Day Stock</span>
                     <span className="font-bold text-sm">{previousFeedStockBags.toLocaleString()} Bags</span>
@@ -611,6 +710,11 @@ export const DailyRecordPage: React.FC = () => {
                     <span className="text-zinc-500 block text-[10px] uppercase">Total Received Till Now</span>
                     <span className="font-bold text-sm text-black">{currentTotalArrivalBagsTillNow.toLocaleString()} Bags</span>
                     <span className="text-[10px] text-zinc-500 block">{(currentTotalArrivalBagsTillNow * 50).toLocaleString()} kg</span>
+                  </div>
+                  <div>
+                    <span className="text-zinc-500 block text-[10px] uppercase">Total Returned Till Now</span>
+                    <span className="font-bold text-sm text-black">{currentTotalReturnedBagsTillNow.toLocaleString()} Bags</span>
+                    <span className="text-[10px] text-zinc-500 block">{(currentTotalReturnedBagsTillNow * 50).toLocaleString()} kg</span>
                   </div>
                   <div className="bg-white border border-black p-2.5 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
                     <span className="text-black block text-[10px] uppercase font-bold">Remaining Bags (Auto)</span>
@@ -629,6 +733,274 @@ export const DailyRecordPage: React.FC = () => {
                     <span className="text-[10px] text-zinc-400 block">
                       Based on living birds
                     </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Tab 3: Chips (Calcium Supplement) */}
+            {activeTab === 'chips' && (
+              <div className="space-y-6">
+                <div className="border-b border-zinc-200 pb-3">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-black">
+                    Chips (Calcium Supplement) Bags Inventory
+                  </h3>
+                  <p className="text-[11px] font-mono text-zinc-500">
+                    Track daily received, used, and returned calcium chips bags to maintain shell strength and flock calcium balance.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider mb-1">
+                      Arrival Bags (Received Today)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      disabled={flock?.status === 'closed'}
+                      value={chipsArrivalBags}
+                      onChange={(e) => setChipsArrivalBags(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                      className="w-full border border-black px-3 py-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-black"
+                    />
+                    <span className="text-[10px] font-mono text-zinc-500 mt-1 block">
+                      Bags received into farm stock
+                    </span>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider mb-1">
+                      Used Bags (Fed to Birds Today)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      disabled={flock?.status === 'closed'}
+                      value={chipsUsedBags}
+                      onChange={(e) => setChipsUsedBags(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                      className="w-full border border-black px-3 py-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-black"
+                    />
+                    <span className="text-[10px] font-mono text-zinc-500 mt-1 block">
+                      Bags mixed/provided to flock today
+                    </span>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider mb-1">
+                      Returned Bags (Chips Returned Today)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      disabled={flock?.status === 'closed'}
+                      value={chipsReturnedBags}
+                      onChange={(e) => setChipsReturnedBags(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                      className="w-full border border-black px-3 py-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-black"
+                    />
+                    <span className="text-[10px] font-mono text-zinc-500 mt-1 block">
+                      Bags returned or sent back
+                    </span>
+                  </div>
+                </div>
+
+                {/* Live Chips Stock & Balance Callout */}
+                <div className="bg-zinc-100 border border-black p-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-xs font-mono">
+                  <div>
+                    <span className="text-zinc-500 block text-[10px] uppercase">Prev. Day Stock</span>
+                    <span className="font-bold text-sm">{previousChipsStockBags.toLocaleString()} Bags</span>
+                    <span className="text-[10px] text-zinc-500 block">Carried forward</span>
+                  </div>
+                  <div>
+                    <span className="text-zinc-500 block text-[10px] uppercase">Total Received Till Now</span>
+                    <span className="font-bold text-sm text-black">{currentTotalChipsArrivalTillNow.toLocaleString()} Bags</span>
+                    <span className="text-[10px] text-zinc-500 block">Cumulative receipts</span>
+                  </div>
+                  <div>
+                    <span className="text-zinc-500 block text-[10px] uppercase">Total Returned Till Now</span>
+                    <span className="font-bold text-sm text-black">{currentTotalChipsReturnedTillNow.toLocaleString()} Bags</span>
+                    <span className="text-[10px] text-zinc-500 block">Cumulative returns</span>
+                  </div>
+                  <div className="bg-white border border-black p-2.5 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                    <span className="text-black block text-[10px] uppercase font-bold">Remaining Bags (Auto)</span>
+                    <span className="font-bold text-base text-black font-tabular block">
+                      {currentRemainingChipsBags.toLocaleString()} Bags
+                    </span>
+                    <span className="text-[10px] text-zinc-500 block">
+                      In farm stock today
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Tab 4: Trays (Plastic & Cardboard) */}
+            {activeTab === 'trays' && (
+              <div className="space-y-6">
+                <div className="border-b border-zinc-200 pb-3">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-black">
+                    Trays Inventory Tracking (Plastic & Cardboard)
+                  </h3>
+                  <p className="text-[11px] font-mono text-zinc-500">
+                    Track reusable plastic trays and disposable cardboard trays separately in one unified dashboard.
+                  </p>
+                </div>
+
+                {/* Section 1: Plastic Trays */}
+                <div className="border-2 border-black p-4 bg-white space-y-4 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                  <div className="flex items-center justify-between border-b border-zinc-200 pb-2">
+                    <div>
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-black">
+                        1. Plastic Trays (Washable & Reusable)
+                      </h4>
+                      <p className="text-[10px] font-mono text-zinc-500">
+                        Track receipts, usage, and cumulative balance of durable plastic trays.
+                      </p>
+                    </div>
+                    <span className="text-[10px] font-mono border border-black bg-zinc-100 px-2 py-0.5">Reusable</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider mb-1">
+                        Plastic Trays Received Today
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        disabled={flock?.status === 'closed'}
+                        value={plasticReceived}
+                        onChange={(e) => setPlasticReceived(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                        className="w-full border border-black px-3 py-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-black"
+                      />
+                      <span className="text-[10px] font-mono text-zinc-500 mt-1 block">
+                        New plastic trays delivered or returned from market
+                      </span>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider mb-1">
+                        Plastic Trays Used Today
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        disabled={flock?.status === 'closed'}
+                        value={plasticUsed}
+                        onChange={(e) => setPlasticUsed(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                        className="w-full border border-black px-3 py-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-black"
+                      />
+                      <span className="text-[10px] font-mono text-zinc-500 mt-1 block">
+                        Trays packed or dispatched today
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Plastic Trays Live Callout */}
+                  <div className="bg-zinc-50 border border-black p-3 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs font-mono">
+                    <div>
+                      <span className="text-zinc-500 block text-[10px] uppercase">Prev. Day Stock</span>
+                      <span className="font-bold text-sm">{previousPlasticStock.toLocaleString()} Trays</span>
+                    </div>
+                    <div>
+                      <span className="text-zinc-500 block text-[10px] uppercase">Total Received Till Now</span>
+                      <span className="font-bold text-sm">{currentTotalPlasticReceivedTillNow.toLocaleString()} Trays</span>
+                    </div>
+                    <div className="bg-white border border-black p-2 shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]">
+                      <span className="text-black block text-[10px] uppercase font-bold">Remaining Plastic Stock (Auto)</span>
+                      <span className="font-bold text-base text-black font-tabular block">
+                        {currentRemainingPlasticTrays.toLocaleString()} Trays
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Section 2: Cardboard Trays */}
+                <div className="border-2 border-black p-4 bg-white space-y-4 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                  <div className="flex items-center justify-between border-b border-zinc-200 pb-2">
+                    <div>
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-black">
+                        2. Cardboard Trays (Paper / Single Use)
+                      </h4>
+                      <p className="text-[10px] font-mono text-zinc-500">
+                        Track receipts, packing usage, wastage (broken/damaged), and remaining stock.
+                      </p>
+                    </div>
+                    <span className="text-[10px] font-mono border border-black bg-zinc-100 px-2 py-0.5">Disposable</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider mb-1">
+                        Cardboard Trays Received Today
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        disabled={flock?.status === 'closed'}
+                        value={cardboardReceived}
+                        onChange={(e) => setCardboardReceived(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                        className="w-full border border-black px-3 py-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-black"
+                      />
+                      <span className="text-[10px] font-mono text-zinc-500 mt-1 block">
+                        New cardboard trays delivered
+                      </span>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider mb-1">
+                        Cardboard Trays Used Today
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        disabled={flock?.status === 'closed'}
+                        value={cardboardUsed}
+                        onChange={(e) => setCardboardUsed(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                        className="w-full border border-black px-3 py-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-black"
+                      />
+                      <span className="text-[10px] font-mono text-zinc-500 mt-1 block">
+                        Trays packed for sale
+                      </span>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider mb-1">
+                        Cardboard Trays Wasted Today
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        disabled={flock?.status === 'closed'}
+                        value={cardboardWasted}
+                        onChange={(e) => setCardboardWasted(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                        className="w-full border border-black px-3 py-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-black"
+                      />
+                      <span className="text-[10px] font-mono text-zinc-500 mt-1 block">
+                        Torn, wet or damaged trays discarded
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Cardboard Trays Live Callout */}
+                  <div className="bg-zinc-50 border border-black p-3 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs font-mono">
+                    <div>
+                      <span className="text-zinc-500 block text-[10px] uppercase">Prev. Day Stock</span>
+                      <span className="font-bold text-sm">{previousCardboardStock.toLocaleString()} Trays</span>
+                    </div>
+                    <div>
+                      <span className="text-zinc-500 block text-[10px] uppercase">Total Received Till Now</span>
+                      <span className="font-bold text-sm">{currentTotalCardboardReceivedTillNow.toLocaleString()} Trays</span>
+                    </div>
+                    <div>
+                      <span className="text-zinc-500 block text-[10px] uppercase">Total Wasted Till Now</span>
+                      <span className="font-bold text-sm">{currentTotalCardboardWastedTillNow.toLocaleString()} Trays</span>
+                    </div>
+                    <div className="bg-white border border-black p-2 shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]">
+                      <span className="text-black block text-[10px] uppercase font-bold">Remaining Cardboard Stock (Auto)</span>
+                      <span className="font-bold text-base text-black font-tabular block">
+                        {currentRemainingCardboardTrays.toLocaleString()} Trays
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>

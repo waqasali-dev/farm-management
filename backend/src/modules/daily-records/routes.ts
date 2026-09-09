@@ -22,6 +22,19 @@ const dailyRecordSaveSchema = z.object({
   feed: z.object({
     arrivalBags: z.number().int().min(0, 'Arrival bags cannot be negative'),
     usedBags: z.number().int().min(0, 'Used bags cannot be negative'),
+    returnedBags: z.number().int().min(0, 'Returned bags cannot be negative').optional(),
+  }).optional(),
+  chips: z.object({
+    arrivalBags: z.number().int().min(0, 'Arrival bags cannot be negative'),
+    usedBags: z.number().int().min(0, 'Used bags cannot be negative'),
+    returnedBags: z.number().int().min(0, 'Returned bags cannot be negative').optional(),
+  }).optional(),
+  trays: z.object({
+    plasticReceived: z.number().int().min(0).optional(),
+    plasticUsed: z.number().int().min(0).optional(),
+    cardboardReceived: z.number().int().min(0).optional(),
+    cardboardUsed: z.number().int().min(0).optional(),
+    cardboardWasted: z.number().int().min(0).optional(),
   }).optional(),
   eggs: z.object({
     productionPeti: z.number().int().min(0),
@@ -73,6 +86,16 @@ async function computeDailyRecordPayload(flockId: string, date: string): Promise
         .select()
         .from(schema.feedDailyRecords)
         .where(and(eq(schema.feedDailyRecords.flockId, flockId), eq(schema.feedDailyRecords.date, date)));
+
+      const [chips] = await db
+        .select()
+        .from(schema.chipsDailyRecords)
+        .where(and(eq(schema.chipsDailyRecords.flockId, flockId), eq(schema.chipsDailyRecords.date, date)));
+
+      const [trays] = await db
+        .select()
+        .from(schema.trayDailyRecords)
+        .where(and(eq(schema.trayDailyRecords.flockId, flockId), eq(schema.trayDailyRecords.date, date)));
 
       const [eggs] = await db
         .select()
@@ -134,10 +157,52 @@ async function computeDailyRecordPayload(flockId: string, date: string): Promise
         .where(and(eq(schema.feedDailyRecords.flockId, flockId), lte(schema.feedDailyRecords.date, date)));
 
       const totalArrivalBagsTillNow = allFeedUpToDate.reduce((sum, r) => sum + r.arrivalBags, 0);
+      const totalReturnedBagsTillNow = allFeedUpToDate.reduce((sum, r) => sum + (r.returnedBags || 0), 0);
       const priorFeed = allFeedUpToDate.filter((r) => r.date < date);
       const previousFeedStockBags = Math.max(
         0,
-        priorFeed.reduce((sum, r) => sum + r.arrivalBags, 0) - priorFeed.reduce((sum, r) => sum + r.usedBags, 0)
+        priorFeed.reduce((sum, r) => sum + r.arrivalBags, 0) -
+          priorFeed.reduce((sum, r) => sum + r.usedBags, 0) -
+          priorFeed.reduce((sum, r) => sum + (r.returnedBags || 0), 0)
+      );
+
+      // Chips (calcium) prior balances
+      const allChipsUpToDate = await db
+        .select()
+        .from(schema.chipsDailyRecords)
+        .where(and(eq(schema.chipsDailyRecords.flockId, flockId), lte(schema.chipsDailyRecords.date, date)));
+
+      const totalChipsArrivalBagsTillNow = allChipsUpToDate.reduce((sum, r) => sum + r.arrivalBags, 0);
+      const totalChipsReturnedBagsTillNow = allChipsUpToDate.reduce((sum, r) => sum + (r.returnedBags || 0), 0);
+      const priorChips = allChipsUpToDate.filter((r) => r.date < date);
+      const previousChipsStockBags = Math.max(
+        0,
+        priorChips.reduce((sum, r) => sum + r.arrivalBags, 0) -
+          priorChips.reduce((sum, r) => sum + r.usedBags, 0) -
+          priorChips.reduce((sum, r) => sum + (r.returnedBags || 0), 0)
+      );
+
+      // Trays (plastic & cardboard) prior balances
+      const allTraysUpToDate = await db
+        .select()
+        .from(schema.trayDailyRecords)
+        .where(and(eq(schema.trayDailyRecords.flockId, flockId), lte(schema.trayDailyRecords.date, date)));
+
+      const totalPlasticReceivedTrays = allTraysUpToDate.reduce((sum, r) => sum + r.plasticReceived, 0);
+      const totalCardboardReceivedTrays = allTraysUpToDate.reduce((sum, r) => sum + r.cardboardReceived, 0);
+      const totalCardboardWastedTrays = allTraysUpToDate.reduce((sum, r) => sum + r.cardboardWasted, 0);
+
+      const priorTrays = allTraysUpToDate.filter((r) => r.date < date);
+      const previousPlasticStockTrays = Math.max(
+        0,
+        priorTrays.reduce((sum, r) => sum + r.plasticReceived, 0) -
+          priorTrays.reduce((sum, r) => sum + r.plasticUsed, 0)
+      );
+      const previousCardboardStockTrays = Math.max(
+        0,
+        priorTrays.reduce((sum, r) => sum + r.cardboardReceived, 0) -
+          priorTrays.reduce((sum, r) => sum + r.cardboardUsed, 0) -
+          priorTrays.reduce((sum, r) => sum + r.cardboardWasted, 0)
       );
 
       // Egg prior balances
@@ -185,6 +250,8 @@ async function computeDailyRecordPayload(flockId: string, date: string): Promise
       const hasExistingRecord = Boolean(
         bird ||
         feed ||
+        chips ||
+        trays ||
         eggs ||
         (eggUsage && eggUsage.length > 0) ||
         diesel ||
@@ -210,7 +277,20 @@ async function computeDailyRecordPayload(flockId: string, date: string): Promise
         feed: feed ? {
           arrivalBags: feed.arrivalBags,
           usedBags: feed.usedBags,
-        } : { arrivalBags: 0, usedBags: 0 },
+          returnedBags: feed.returnedBags || 0,
+        } : { arrivalBags: 0, usedBags: 0, returnedBags: 0 },
+        chips: chips ? {
+          arrivalBags: chips.arrivalBags,
+          usedBags: chips.usedBags,
+          returnedBags: chips.returnedBags || 0,
+        } : { arrivalBags: 0, usedBags: 0, returnedBags: 0 },
+        trays: trays ? {
+          plasticReceived: trays.plasticReceived,
+          plasticUsed: trays.plasticUsed,
+          cardboardReceived: trays.cardboardReceived,
+          cardboardUsed: trays.cardboardUsed,
+          cardboardWasted: trays.cardboardWasted,
+        } : { plasticReceived: 0, plasticUsed: 0, cardboardReceived: 0, cardboardUsed: 0, cardboardWasted: 0 },
         eggs: eggs ? {
           productionPeti: eggs.productionPeti,
           productionTrays: eggs.productionTrays,
@@ -243,6 +323,15 @@ async function computeDailyRecordPayload(flockId: string, date: string): Promise
         priorBalances: {
           previousFeedStockBags,
           totalArrivalBagsTillNow,
+          totalReturnedBagsTillNow,
+          previousChipsStockBags,
+          totalChipsArrivalBagsTillNow,
+          totalChipsReturnedBagsTillNow,
+          previousPlasticStockTrays,
+          totalPlasticReceivedTrays,
+          previousCardboardStockTrays,
+          totalCardboardReceivedTrays,
+          totalCardboardWastedTrays,
           previousEggStock,
           previousDieselStockLiters,
           birdAge,
@@ -259,6 +348,8 @@ async function computeDailyRecordPayload(flockId: string, date: string): Promise
 
   const bird = mockStore.birdRecords.find((r) => r.flockId === flockId && r.date === date) || null;
   const feed = mockStore.feedRecords.find((r) => r.flockId === flockId && r.date === date) || null;
+  const chips = mockStore.chipsRecords.find((r) => r.flockId === flockId && r.date === date) || null;
+  const trays = mockStore.trayRecords.find((r) => r.flockId === flockId && r.date === date) || null;
   const eggs = mockStore.eggRecords.find((r) => r.flockId === flockId && r.date === date) || null;
   const eggUsage = mockStore.eggUsageRecords.filter((r) => r.flockId === flockId && r.date === date);
   const diesel = mockStore.dieselRecords.find((r) => r.flockId === flockId && r.date === date) || null;
@@ -269,6 +360,8 @@ async function computeDailyRecordPayload(flockId: string, date: string): Promise
   const hasExistingRecord = Boolean(
     bird ||
     feed ||
+    chips ||
+    trays ||
     eggs ||
     (eggUsage && eggUsage.length > 0) ||
     diesel ||
@@ -281,12 +374,47 @@ async function computeDailyRecordPayload(flockId: string, date: string): Promise
   const cumulativeMoat = priorBirdRecords.reduce((sum, r) => sum + r.mortality, 0);
   const cumulativeMoatPct = flock.initialBirds > 0 ? Number(((cumulativeMoat / flock.initialBirds) * 100).toFixed(3)) : 0;
 
+  // Feed balances
   const allFeedUpToDate = mockStore.feedRecords.filter((r) => r.flockId === flockId && r.date <= date);
   const totalArrivalBagsTillNow = allFeedUpToDate.reduce((sum, r) => sum + r.arrivalBags, 0);
+  const totalReturnedBagsTillNow = allFeedUpToDate.reduce((sum, r) => sum + (r.returnedBags || 0), 0);
   const priorFeed = allFeedUpToDate.filter((r) => r.date < date);
   const previousFeedStockBags = Math.max(
     0,
-    priorFeed.reduce((sum, r) => sum + r.arrivalBags, 0) - priorFeed.reduce((sum, r) => sum + r.usedBags, 0)
+    priorFeed.reduce((sum, r) => sum + r.arrivalBags, 0) -
+      priorFeed.reduce((sum, r) => sum + r.usedBags, 0) -
+      priorFeed.reduce((sum, r) => sum + (r.returnedBags || 0), 0)
+  );
+
+  // Chips balances
+  const allChipsUpToDate = mockStore.chipsRecords.filter((r) => r.flockId === flockId && r.date <= date);
+  const totalChipsArrivalBagsTillNow = allChipsUpToDate.reduce((sum, r) => sum + r.arrivalBags, 0);
+  const totalChipsReturnedBagsTillNow = allChipsUpToDate.reduce((sum, r) => sum + (r.returnedBags || 0), 0);
+  const priorChips = allChipsUpToDate.filter((r) => r.date < date);
+  const previousChipsStockBags = Math.max(
+    0,
+    priorChips.reduce((sum, r) => sum + r.arrivalBags, 0) -
+      priorChips.reduce((sum, r) => sum + r.usedBags, 0) -
+      priorChips.reduce((sum, r) => sum + (r.returnedBags || 0), 0)
+  );
+
+  // Trays balances
+  const allTraysUpToDate = mockStore.trayRecords.filter((r) => r.flockId === flockId && r.date <= date);
+  const totalPlasticReceivedTrays = allTraysUpToDate.reduce((sum, r) => sum + r.plasticReceived, 0);
+  const totalCardboardReceivedTrays = allTraysUpToDate.reduce((sum, r) => sum + r.cardboardReceived, 0);
+  const totalCardboardWastedTrays = allTraysUpToDate.reduce((sum, r) => sum + r.cardboardWasted, 0);
+
+  const priorTrays = allTraysUpToDate.filter((r) => r.date < date);
+  const previousPlasticStockTrays = Math.max(
+    0,
+    priorTrays.reduce((sum, r) => sum + r.plasticReceived, 0) -
+      priorTrays.reduce((sum, r) => sum + r.plasticUsed, 0)
+  );
+  const previousCardboardStockTrays = Math.max(
+    0,
+    priorTrays.reduce((sum, r) => sum + r.cardboardReceived, 0) -
+      priorTrays.reduce((sum, r) => sum + r.cardboardUsed, 0) -
+      priorTrays.reduce((sum, r) => sum + r.cardboardWasted, 0)
   );
 
   let previousEggStock = { peti: 0, trays: 0 };
@@ -333,7 +461,20 @@ async function computeDailyRecordPayload(flockId: string, date: string): Promise
     feed: feed ? {
       arrivalBags: feed.arrivalBags,
       usedBags: feed.usedBags,
-    } : { arrivalBags: 0, usedBags: 0 },
+      returnedBags: feed.returnedBags || 0,
+    } : { arrivalBags: 0, usedBags: 0, returnedBags: 0 },
+    chips: chips ? {
+      arrivalBags: chips.arrivalBags,
+      usedBags: chips.usedBags,
+      returnedBags: chips.returnedBags || 0,
+    } : { arrivalBags: 0, usedBags: 0, returnedBags: 0 },
+    trays: trays ? {
+      plasticReceived: trays.plasticReceived,
+      plasticUsed: trays.plasticUsed,
+      cardboardReceived: trays.cardboardReceived,
+      cardboardUsed: trays.cardboardUsed,
+      cardboardWasted: trays.cardboardWasted,
+    } : { plasticReceived: 0, plasticUsed: 0, cardboardReceived: 0, cardboardUsed: 0, cardboardWasted: 0 },
     eggs: eggs ? {
       productionPeti: eggs.productionPeti,
       productionTrays: eggs.productionTrays,
@@ -366,6 +507,15 @@ async function computeDailyRecordPayload(flockId: string, date: string): Promise
     priorBalances: {
       previousFeedStockBags,
       totalArrivalBagsTillNow,
+      totalReturnedBagsTillNow,
+      previousChipsStockBags,
+      totalChipsArrivalBagsTillNow,
+      totalChipsReturnedBagsTillNow,
+      previousPlasticStockTrays,
+      totalPlasticReceivedTrays,
+      previousCardboardStockTrays,
+      totalCardboardReceivedTrays,
+      totalCardboardWastedTrays,
       previousEggStock,
       previousDieselStockLiters,
       birdAge: calculateBirdAge(date, flock.startDate),
@@ -507,6 +657,7 @@ export const dailyRecordRoutes: FastifyPluginAsync = async (fastify) => {
                 .set({
                   arrivalBags: data.feed.arrivalBags,
                   usedBags: data.feed.usedBags,
+                  returnedBags: data.feed.returnedBags ?? 0,
                   updatedAt: new Date(),
                 })
                 .where(eq(schema.feedDailyRecords.id, existing.id));
@@ -517,6 +668,69 @@ export const dailyRecordRoutes: FastifyPluginAsync = async (fastify) => {
                 date,
                 arrivalBags: data.feed.arrivalBags,
                 usedBags: data.feed.usedBags,
+                returnedBags: data.feed.returnedBags ?? 0,
+              });
+            }
+          }
+
+          // 2.5 Chips (Calcium Supplement)
+          if (data.chips) {
+            const [existing] = await tx
+              .select()
+              .from(schema.chipsDailyRecords)
+              .where(and(eq(schema.chipsDailyRecords.flockId, flockId), eq(schema.chipsDailyRecords.date, date)));
+
+            if (existing) {
+              await tx
+                .update(schema.chipsDailyRecords)
+                .set({
+                  arrivalBags: data.chips.arrivalBags,
+                  usedBags: data.chips.usedBags,
+                  returnedBags: data.chips.returnedBags ?? 0,
+                  updatedAt: new Date(),
+                })
+                .where(eq(schema.chipsDailyRecords.id, existing.id));
+            } else {
+              await tx.insert(schema.chipsDailyRecords).values({
+                farmId,
+                flockId,
+                date,
+                arrivalBags: data.chips.arrivalBags,
+                usedBags: data.chips.usedBags,
+                returnedBags: data.chips.returnedBags ?? 0,
+              });
+            }
+          }
+
+          // 2.6 Trays (Plastic & Cardboard)
+          if (data.trays) {
+            const [existing] = await tx
+              .select()
+              .from(schema.trayDailyRecords)
+              .where(and(eq(schema.trayDailyRecords.flockId, flockId), eq(schema.trayDailyRecords.date, date)));
+
+            if (existing) {
+              await tx
+                .update(schema.trayDailyRecords)
+                .set({
+                  plasticReceived: data.trays.plasticReceived ?? 0,
+                  plasticUsed: data.trays.plasticUsed ?? 0,
+                  cardboardReceived: data.trays.cardboardReceived ?? 0,
+                  cardboardUsed: data.trays.cardboardUsed ?? 0,
+                  cardboardWasted: data.trays.cardboardWasted ?? 0,
+                  updatedAt: new Date(),
+                })
+                .where(eq(schema.trayDailyRecords.id, existing.id));
+            } else {
+              await tx.insert(schema.trayDailyRecords).values({
+                farmId,
+                flockId,
+                date,
+                plasticReceived: data.trays.plasticReceived ?? 0,
+                plasticUsed: data.trays.plasticUsed ?? 0,
+                cardboardReceived: data.trays.cardboardReceived ?? 0,
+                cardboardUsed: data.trays.cardboardUsed ?? 0,
+                cardboardWasted: data.trays.cardboardWasted ?? 0,
               });
             }
           }
@@ -752,6 +966,7 @@ export const dailyRecordRoutes: FastifyPluginAsync = async (fastify) => {
       if (existing) {
         existing.arrivalBags = data.feed.arrivalBags;
         existing.usedBags = data.feed.usedBags;
+        existing.returnedBags = data.feed.returnedBags ?? 0;
         existing.updatedAt = new Date();
       } else {
         mockStore.feedRecords.push({
@@ -761,6 +976,55 @@ export const dailyRecordRoutes: FastifyPluginAsync = async (fastify) => {
           date,
           arrivalBags: data.feed.arrivalBags,
           usedBags: data.feed.usedBags,
+          returnedBags: data.feed.returnedBags ?? 0,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+      }
+    }
+
+    if (data.chips) {
+      const existing = mockStore.chipsRecords.find((r) => r.flockId === flockId && r.date === date);
+      if (existing) {
+        existing.arrivalBags = data.chips.arrivalBags;
+        existing.usedBags = data.chips.usedBags;
+        existing.returnedBags = data.chips.returnedBags ?? 0;
+        existing.updatedAt = new Date();
+      } else {
+        mockStore.chipsRecords.push({
+          id: crypto.randomUUID(),
+          farmId,
+          flockId,
+          date,
+          arrivalBags: data.chips.arrivalBags,
+          usedBags: data.chips.usedBags,
+          returnedBags: data.chips.returnedBags ?? 0,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+      }
+    }
+
+    if (data.trays) {
+      const existing = mockStore.trayRecords.find((r) => r.flockId === flockId && r.date === date);
+      if (existing) {
+        existing.plasticReceived = data.trays.plasticReceived ?? 0;
+        existing.plasticUsed = data.trays.plasticUsed ?? 0;
+        existing.cardboardReceived = data.trays.cardboardReceived ?? 0;
+        existing.cardboardUsed = data.trays.cardboardUsed ?? 0;
+        existing.cardboardWasted = data.trays.cardboardWasted ?? 0;
+        existing.updatedAt = new Date();
+      } else {
+        mockStore.trayRecords.push({
+          id: crypto.randomUUID(),
+          farmId,
+          flockId,
+          date,
+          plasticReceived: data.trays.plasticReceived ?? 0,
+          plasticUsed: data.trays.plasticUsed ?? 0,
+          cardboardReceived: data.trays.cardboardReceived ?? 0,
+          cardboardUsed: data.trays.cardboardUsed ?? 0,
+          cardboardWasted: data.trays.cardboardWasted ?? 0,
           createdAt: new Date(),
           updatedAt: new Date(),
         });

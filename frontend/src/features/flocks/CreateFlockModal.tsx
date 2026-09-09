@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useCreateFlockMutation } from '../../lib/queries.js';
 import { Flock } from '../../types/index.js';
-import { calculateBirdAge, calculateRemainingBirds } from '../../lib/calculations.js';
+import { calculateBirdAge, calculateRemainingBirds, calculateStartDateFromAge } from '../../lib/calculations.js';
 import { X, Layers, AlertCircle, Calculator } from 'lucide-react';
 
 interface CreateFlockModalProps {
@@ -39,6 +39,24 @@ export const CreateFlockModal: React.FC<CreateFlockModalProps> = ({
   const [remainingEggTrays, setRemainingEggTrays] = useState<number | ''>(0);
   const [remainingDieselLiters, setRemainingDieselLiters] = useState<number | ''>(0);
   const [asOfDate, setAsOfDate] = useState(yesterdayStr);
+
+  // Age-based start date derivation
+  const [calcFromAge, setCalcFromAge] = useState(false);
+  const [refDate, setRefDate] = useState(yesterdayStr);
+  const [knownWeek, setKnownWeek] = useState<number | ''>(17);
+  const [knownDay, setKnownDay] = useState<number | ''>(3);
+
+  const derivedStart = useMemo(() => {
+    if (!calcFromAge || !refDate || knownWeek === '' || knownDay === '') return null;
+    return calculateStartDateFromAge(refDate, Number(knownWeek) || 1, Number(knownDay) || 0);
+  }, [calcFromAge, refDate, knownWeek, knownDay]);
+
+  const handleApplyDerivedStart = (rDate: string, w: number | '', d: number | '') => {
+    if (rDate && w !== '' && d !== '') {
+      const res = calculateStartDateFromAge(rDate, Number(w) || 1, Number(d) || 0);
+      setStartDate(res.startDate);
+    }
+  };
 
   const [error, setError] = useState<string | null>(null);
 
@@ -245,19 +263,132 @@ export const CreateFlockModal: React.FC<CreateFlockModalProps> = ({
 
           {/* Start Date & Bird Age Calculation */}
           <div className="border border-black p-4 bg-zinc-50 space-y-3">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-2">
               <label className="block text-xs font-bold uppercase tracking-wider text-black">
                 {mode === 'running' ? 'When Did This Flock Start? (Start Date) *' : 'Start Date (Day 0) *'}
               </label>
               {mode === 'running' && (
                 <span className="text-[10px] font-mono font-bold uppercase bg-black text-white px-2 py-0.5">
-                  Calculated Age: {birdAge.formatted}
+                  Calculated Age Today: {birdAge.formatted}
                 </span>
               )}
             </div>
 
+            {mode === 'running' && (
+              <div className="border border-black bg-white p-3 space-y-3">
+                <label className="flex items-center gap-2.5 cursor-pointer text-xs font-mono font-bold select-none">
+                  <input
+                    type="checkbox"
+                    checked={calcFromAge}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setCalcFromAge(checked);
+                      if (checked && refDate && knownWeek !== '' && knownDay !== '') {
+                        const res = calculateStartDateFromAge(refDate, Number(knownWeek) || 1, Number(knownDay) || 0);
+                        setStartDate(res.startDate);
+                      }
+                    }}
+                    className="w-4 h-4 accent-black cursor-pointer"
+                  />
+                  <span>I know the bird age on a specific date (Calculate starting date automatically)</span>
+                </label>
+
+                {calcFromAge && (
+                  <div className="pt-2 border-t border-zinc-200 space-y-3">
+                    <p className="text-[11px] font-mono text-zinc-600">
+                      Enter the known date and the bird's age on that date. The system will determine the estimated starting date and calculate the current age today.
+                    </p>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase tracking-wider mb-1 text-black">
+                          Known Date (Reference) *
+                        </label>
+                        <input
+                          type="date"
+                          max={todayStr}
+                          value={refDate}
+                          onChange={(e) => {
+                            setRefDate(e.target.value);
+                            handleApplyDerivedStart(e.target.value, knownWeek, knownDay);
+                          }}
+                          className="w-full border border-black px-2.5 py-1.5 text-xs font-mono bg-white focus:outline-none focus:ring-1 focus:ring-black"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase tracking-wider mb-1 text-black">
+                          Age on that Date: Week *
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          step="1"
+                          value={knownWeek}
+                          onChange={(e) => {
+                            const val = e.target.value === '' ? '' : parseInt(e.target.value, 10);
+                            setKnownWeek(val);
+                            handleApplyDerivedStart(refDate, val, knownDay);
+                          }}
+                          placeholder="e.g. 17"
+                          className="w-full border border-black px-2.5 py-1.5 text-xs font-mono bg-white focus:outline-none focus:ring-1 focus:ring-black"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase tracking-wider mb-1 text-black">
+                          Age on that Date: Day *
+                        </label>
+                        <select
+                          value={knownDay}
+                          onChange={(e) => {
+                            const val = e.target.value === '' ? '' : parseInt(e.target.value, 10);
+                            setKnownDay(val);
+                            handleApplyDerivedStart(refDate, knownWeek, val);
+                          }}
+                          className="w-full border border-black px-2.5 py-1.5 text-xs font-mono bg-white focus:outline-none focus:ring-1 focus:ring-black"
+                        >
+                          <option value={0}>Day 00 (Sunday)</option>
+                          <option value={1}>Day 01 (Monday)</option>
+                          <option value={2}>Day 02 (Tuesday)</option>
+                          <option value={3}>Day 03 (Wednesday)</option>
+                          <option value={4}>Day 04 (Thursday)</option>
+                          <option value={5}>Day 05 (Friday)</option>
+                          <option value={6}>Day 06 (Saturday)</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {derivedStart && (
+                      <div className="bg-black text-white p-3 text-xs font-mono flex flex-col sm:flex-row sm:items-center justify-between gap-2 border border-black">
+                        <div>
+                          <span className="text-[10px] text-zinc-400 block uppercase">Estimated Flock Starting Date</span>
+                          <span className="font-bold text-sm text-white">{startDate}</span>
+                          <span className="text-[10px] text-zinc-400 block mt-0.5">
+                            Age on {refDate}: Week {knownWeek}, Day 0{knownDay} ({derivedStart.elapsedDays} elapsed days)
+                          </span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-[10px] text-zinc-400 block uppercase">Age Right Now (Today)</span>
+                          <span className="font-bold text-sm text-white">
+                            Week {birdAge.week}, Day {birdAge.day} ({birdAge.formatted})
+                          </span>
+                          <span className="text-[10px] text-zinc-400 block mt-0.5">
+                            {birdAge.totalDays} calendar days elapsed till today
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
               <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider mb-1 text-black">
+                  {mode === 'running' ? 'Flock Starting Date (Auto or Custom) *' : 'Placement Date (Day 0) *'}
+                </label>
                 <input
                   type="date"
                   required

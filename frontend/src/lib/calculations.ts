@@ -67,3 +67,37 @@ export function calculateBirdAge(targetDateStr: string, startDateStr: string): {
     formatted: `W${formattedWeek}-D${formattedDay}`,
   };
 }
+
+export function calculateStartDateFromAge(
+  referenceDateStr: string,
+  week: number,
+  day: number
+): {
+  startDate: string;
+  elapsedDays: number;
+} {
+  const ref = new Date(referenceDateStr + 'T00:00:00');
+  const safeWeek = Math.max(1, Math.floor(Number(week) || 1));
+  const safeDay = Math.max(0, Math.min(6, Math.floor(Number(day) || 0)));
+  const elapsedDays = (safeWeek - 1) * 7 + safeDay;
+
+  const start = new Date(ref);
+  start.setDate(start.getDate() - elapsedDays);
+
+  const y = start.getFullYear();
+  const m = String(start.getMonth() + 1).padStart(2, '0');
+  const d = String(start.getDate()).padStart(2, '0');
+
+  return {
+    startDate: `${y}-${m}-${d}`,
+    elapsedDays,
+  };
+}
+
+export function calculateRemainingFeedBags(
+  totalArrivalBags: number,
+  totalUsedBags: number,
+  totalReturnedBags: number = 0
+): number {
+  return Math.max(0, Number(totalArrivalBags || 0) - Number(totalUsedBags || 0) - Number(totalReturnedBags || 0));
+}
