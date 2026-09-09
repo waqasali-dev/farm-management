@@ -66,6 +66,20 @@ export function useCloseFlockMutation() {
   });
 }
 
+export function useDeleteFlockMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (flockId: string) => api.deleteFlock(flockId),
+    onSuccess: (_, flockId) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.flocks.all() });
+      queryClient.removeQueries({ queryKey: queryKeys.flocks.detail(flockId) });
+      queryClient.removeQueries({ queryKey: ['daily-record', flockId] });
+      queryClient.removeQueries({ queryKey: ['dashboard', flockId] });
+      queryClient.removeQueries({ queryKey: ['reports', flockId] });
+    },
+  });
+}
+
 // 4. Dashboard Query
 export function useDashboardQuery(flockId?: string, date?: string) {
   return useQuery<DashboardData>({

@@ -80,6 +80,11 @@ export const api = {
       body: JSON.stringify({}),
     }),
 
+  deleteFlock: (flockId: string) =>
+    fetchJson<{ deleted: boolean; id: string }>(`/flocks/${flockId}`, {
+      method: 'DELETE',
+    }),
+
   // Dashboard
   getDashboard: (flockId: string, date?: string) =>
     fetchJson<DashboardData>(`/flocks/${flockId}/dashboard${date ? `?date=${date}` : ''}`),

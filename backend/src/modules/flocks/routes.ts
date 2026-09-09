@@ -475,4 +475,70 @@ export const flockRoutes: FastifyPluginAsync = async (fastify) => {
     await refreshFlocksListCache();
     return successResponse(closed);
   });
+
+  // DELETE /api/v1/flocks/:flockId
+  fastify.delete('/flocks/:flockId', async (request, reply) => {
+    const { flockId } = request.params as { flockId: string };
+
+    if (isDatabaseConnected()) {
+      try {
+        const [flock] = await db
+          .select()
+          .from(schema.flocks)
+          .where(eq(schema.flocks.id, flockId));
+
+        if (!flock) {
+          reply.status(404);
+          return errorResponse('Flock not found', 'NOT_FOUND');
+        }
+
+        // Delete all child tables (also handled by PostgreSQL ON DELETE CASCADE)
+        await db.delete(schema.birdDailyRecords).where(eq(schema.birdDailyRecords.flockId, flockId));
+        await db.delete(schema.feedDailyRecords).where(eq(schema.feedDailyRecords.flockId, flockId));
+        await db.delete(schema.eggDailyRecords).where(eq(schema.eggDailyRecords.flockId, flockId));
+        await db.delete(schema.eggUsageRecords).where(eq(schema.eggUsageRecords.flockId, flockId));
+        await db.delete(schema.dieselDailyRecords).where(eq(schema.dieselDailyRecords.flockId, flockId));
+        await db.delete(schema.weightRecords).where(eq(schema.weightRecords.flockId, flockId));
+        await db.delete(schema.vaccinationRecords).where(eq(schema.vaccinationRecords.flockId, flockId));
+        await db.delete(schema.chipsDailyRecords).where(eq(schema.chipsDailyRecords.flockId, flockId));
+        await db.delete(schema.trayDailyRecords).where(eq(schema.trayDailyRecords.flockId, flockId));
+        await db.delete(schema.medicineDailyRecords).where(eq(schema.medicineDailyRecords.flockId, flockId));
+
+        // Delete the flock itself
+        await db.delete(schema.flocks).where(eq(schema.flocks.id, flockId));
+
+        await flushFlockCache(flockId);
+        await flushFlocksListCache();
+        await refreshFlocksListCache();
+
+        return successResponse({ deleted: true, id: flockId });
+      } catch (err: any) {
+        reply.status(500);
+        return errorResponse(err.message || 'Database delete failed');
+      }
+    }
+
+    const flockIndex = mockStore.flocks.findIndex((f) => f.id === flockId);
+    if (flockIndex === -1) {
+      reply.status(404);
+      return errorResponse('Flock not found', 'NOT_FOUND');
+    }
+
+    mockStore.flocks.splice(flockIndex, 1);
+    mockStore.birdRecords = mockStore.birdRecords.filter((r) => r.flockId !== flockId);
+    mockStore.feedRecords = mockStore.feedRecords.filter((r) => r.flockId !== flockId);
+    mockStore.eggRecords = mockStore.eggRecords.filter((r) => r.flockId !== flockId);
+    mockStore.dieselRecords = mockStore.dieselRecords.filter((r) => r.flockId !== flockId);
+    mockStore.weightRecords = mockStore.weightRecords.filter((r) => r.flockId !== flockId);
+    mockStore.medicineDailyRecords = mockStore.medicineDailyRecords.filter((r) => r.flockId !== flockId);
+    mockStore.vaccinationRecords = mockStore.vaccinationRecords.filter((r) => r.flockId !== flockId);
+    mockStore.chipsRecords = mockStore.chipsRecords.filter((r) => r.flockId !== flockId);
+    mockStore.trayRecords = mockStore.trayRecords.filter((r) => r.flockId !== flockId);
+
+    await flushFlockCache(flockId);
+    await flushFlocksListCache();
+    await refreshFlocksListCache();
+
+    return successResponse({ deleted: true, id: flockId });
+  });
 };

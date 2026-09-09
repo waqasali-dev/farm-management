@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
 import { Flock, HealthStatus } from '../../types/index.js';
-import { useFlocksQuery, useCloseFlockMutation } from '../../lib/queries.js';
-import { Plus, Layers, Lock, Check, AlertCircle } from 'lucide-react';
+import { useFlocksQuery, useCloseFlockMutation, useDeleteFlockMutation } from '../../lib/queries.js';
+import { Plus, Layers, Lock, Check, AlertCircle, Trash2, AlertTriangle } from 'lucide-react';
 import { CreateFlockModal } from './CreateFlockModal.js';
 import { ConfirmModal } from '../../components/ui/ConfirmModal.js';
 
@@ -15,15 +15,18 @@ interface OutletContextType {
 
 export const FlocksPage: React.FC = () => {
   const { activeFlock, refreshFlocks } = useOutletContext<OutletContextType>();
-  const [filter, setFilter] = useState<'all' | 'active' | 'closed'>('all');
+  const [filter, setFilter] = useState<'active' | 'closed' | 'all'>('active');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [flockToClose, setFlockToClose] = useState<Flock | null>(null);
+  const [flockToDelete, setFlockToDelete] = useState<Flock | null>(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const navigate = useNavigate();
 
   // TanStack Query for Flocks List
   const { data: flocks = [], isLoading } = useFlocksQuery(filter === 'all' ? undefined : filter);
   const closeFlockMutation = useCloseFlockMutation();
+  const deleteFlockMutation = useDeleteFlockMutation();
 
   const handleConfirmCloseFlock = async () => {
     if (!flockToClose) return;
@@ -41,6 +44,35 @@ export const FlocksPage: React.FC = () => {
         message: err.message || 'Failed to close flock.',
       });
       setFlockToClose(null);
+    }
+  };
+
+  const handleConfirmDeleteFlock = async () => {
+    if (!flockToDelete) return;
+    if (deleteConfirmText.trim().toLowerCase() !== 'delete') return;
+
+    try {
+      await deleteFlockMutation.mutateAsync(flockToDelete.id);
+      
+      const savedFlockId = localStorage.getItem('active_flock_id');
+      if (savedFlockId === flockToDelete.id) {
+        localStorage.removeItem('active_flock_id');
+      }
+
+      refreshFlocks?.();
+      setFeedback({
+        type: 'success',
+        message: `Flock [${flockToDelete.flockCode}] ${flockToDelete.name} and all associated historical records were permanently deleted.`,
+      });
+      setFlockToDelete(null);
+      setDeleteConfirmText('');
+    } catch (err: any) {
+      setFeedback({
+        type: 'error',
+        message: err.message || 'Failed to delete flock.',
+      });
+      setFlockToDelete(null);
+      setDeleteConfirmText('');
     }
   };
 
@@ -68,7 +100,7 @@ export const FlocksPage: React.FC = () => {
         <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-3 w-full sm:w-auto flex-wrap">
           {/* Status Filter Tabs */}
           <div className="border border-black p-0.5 flex bg-zinc-100 text-xs font-mono">
-            {(['all', 'active', 'closed'] as const).map((s) => (
+            {(['active', 'closed', 'all'] as const).map((s) => (
               <button
                 key={s}
                 onClick={() => setFilter(s)}
@@ -183,12 +215,12 @@ export const FlocksPage: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 pt-1">
+                <div className="flex items-center gap-2 pt-1 flex-wrap">
                   {!isCurrent && (
                     <button
                       type="button"
                       onClick={() => handleSetActive(flock)}
-                      className="flex-1 py-2 text-xs font-mono font-bold uppercase border-2 border-black bg-white hover:bg-black hover:text-white transition-colors text-center shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]"
+                      className="flex-1 min-w-[70px] py-2 text-xs font-mono font-bold uppercase border-2 border-black bg-white hover:bg-black hover:text-white transition-colors text-center shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]"
                     >
                       Select
                     </button>
@@ -196,7 +228,7 @@ export const FlocksPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => navigate(`/flocks/${flock.id}/daily`)}
-                    className="flex-1 py-2 text-xs font-mono font-bold uppercase border-2 border-black bg-black text-white hover:bg-zinc-800 transition-colors text-center shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]"
+                    className="flex-1 min-w-[90px] py-2 text-xs font-mono font-bold uppercase border-2 border-black bg-black text-white hover:bg-zinc-800 transition-colors text-center shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]"
                   >
                     Daily Log
                   </button>
@@ -211,6 +243,19 @@ export const FlocksPage: React.FC = () => {
                       Close
                     </button>
                   )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFlockToDelete(flock);
+                      setDeleteConfirmText('');
+                    }}
+                    disabled={deleteFlockMutation.isPending}
+                    className="py-2 px-3 text-xs font-mono font-bold uppercase border border-red-500 text-red-600 bg-white hover:bg-red-50 disabled:opacity-50 flex items-center gap-1 shadow-[1px_1px_0px_0px_rgba(220,38,38,0.3)]"
+                    title="Permanently delete flock"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Delete</span>
+                  </button>
                 </div>
               </div>
             );
@@ -292,7 +337,7 @@ export const FlocksPage: React.FC = () => {
                           {flock.status}
                         </span>
                       </td>
-                      <td className="py-3 px-4 text-right space-x-2">
+                      <td className="py-3 px-4 text-right space-x-2 whitespace-nowrap">
                         {!isCurrent && (
                           <button
                             onClick={() => handleSetActive(flock)}
@@ -317,6 +362,18 @@ export const FlocksPage: React.FC = () => {
                             Close
                           </button>
                         )}
+                        <button
+                          onClick={() => {
+                            setFlockToDelete(flock);
+                            setDeleteConfirmText('');
+                          }}
+                          disabled={deleteFlockMutation.isPending}
+                          className="border border-red-500 text-red-600 px-2.5 py-1 text-[11px] uppercase hover:bg-red-50 disabled:opacity-50 inline-flex items-center gap-1 font-semibold"
+                          title="Permanently delete flock completely"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                          <span>Delete</span>
+                        </button>
                       </td>
                     </tr>
                   );
@@ -349,6 +406,97 @@ export const FlocksPage: React.FC = () => {
         onConfirm={handleConfirmCloseFlock}
         onCancel={() => setFlockToClose(null)}
       />
+
+      {/* Delete Flock Strong Warning & Typed Confirmation Modal */}
+      {flockToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="bg-white border-2 border-red-600 w-full max-w-lg shadow-[6px_6px_0px_0px_rgba(220,38,38,1)] p-5 sm:p-6 space-y-5">
+            {/* Warning Header */}
+            <div className="flex items-start gap-3 border-b-2 border-red-600 pb-3">
+              <div className="w-10 h-10 bg-red-600 text-white flex items-center justify-center shrink-0 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                <AlertTriangle className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold uppercase tracking-wider text-red-600">
+                  CRITICAL ACTION: PERMANENT FLOCK DELETION
+                </h3>
+                <p className="text-xs font-mono text-black font-semibold mt-0.5">
+                  [{flockToDelete.flockCode}] {flockToDelete.name} ({flockToDelete.status.toUpperCase()})
+                </p>
+              </div>
+            </div>
+
+            {/* Warning Details */}
+            <div className="bg-red-50 border border-red-300 p-3.5 space-y-2 text-xs font-mono text-red-950">
+              <p className="font-bold uppercase text-red-700">
+                ⚠️ Warning: This operation CANNOT be undone!
+              </p>
+              <p className="text-[11px] leading-relaxed">
+                Deleting this flock will permanently erase it and purge ALL corresponding historical data from the database, including:
+              </p>
+              <ul className="text-[10px] list-disc list-inside space-y-0.5 text-zinc-700 pl-1">
+                <li>Daily mortality records, moat cumulative counts & weather logs</li>
+                <li>All feed arrivals, consumption, and return tracking records</li>
+                <li>All calcium chips bags received, used, and returned logs</li>
+                <li>All plastic and cardboard tray inventory & wastage records</li>
+                <li>Egg production, sales, conveyor/mess usage & waste logs</li>
+                <li>Diesel fuel arrivals and consumption history</li>
+                <li>Bird weighings, uniformity, water, medicines & vaccination history</li>
+              </ul>
+            </div>
+
+            {/* Typed Confirmation Box */}
+            <div className="space-y-2">
+              <label className="block text-xs font-mono font-bold uppercase text-black">
+                To confirm deletion, type <span className="text-red-600 bg-zinc-100 px-1.5 py-0.5 border border-red-300">delete</span> in the field below:
+              </label>
+              <input
+                type="text"
+                autoFocus
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                placeholder="Type 'delete' to confirm"
+                className="w-full border-2 border-black px-3 py-2 text-xs font-mono font-bold focus:outline-none focus:ring-2 focus:ring-red-600"
+              />
+              <span className="text-[10px] font-mono text-zinc-500 block">
+                The delete button will remain disabled until you type "delete".
+              </span>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center justify-end gap-3 pt-2 border-t border-zinc-200">
+              <button
+                type="button"
+                onClick={() => {
+                  setFlockToDelete(null);
+                  setDeleteConfirmText('');
+                }}
+                disabled={deleteFlockMutation.isPending}
+                className="px-4 py-2 border border-black bg-white hover:bg-zinc-100 text-xs font-mono uppercase font-bold"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={handleConfirmDeleteFlock}
+                disabled={
+                  deleteConfirmText.trim().toLowerCase() !== 'delete' ||
+                  deleteFlockMutation.isPending
+                }
+                className="px-5 py-2 bg-red-600 text-white hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-mono uppercase font-bold tracking-wider shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center gap-2 active:translate-x-0.5 active:translate-y-0.5"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>
+                  {deleteFlockMutation.isPending
+                    ? 'Deleting Flock...'
+                    : 'Permanently Delete Flock'}
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
