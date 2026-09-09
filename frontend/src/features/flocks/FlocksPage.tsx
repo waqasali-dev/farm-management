@@ -5,6 +5,7 @@ import { useFlocksQuery, useCloseFlockMutation, useDeleteFlockMutation } from '.
 import { Plus, Layers, Lock, Check, AlertCircle, Trash2, AlertTriangle } from 'lucide-react';
 import { CreateFlockModal } from './CreateFlockModal.js';
 import { ConfirmModal } from '../../components/ui/ConfirmModal.js';
+import { saveActiveFlockCache, getActiveFlockCache, clearActiveFlockCache } from '../../lib/browser-cache.js';
 
 interface OutletContextType {
   activeFlock: Flock | null;
@@ -54,9 +55,9 @@ export const FlocksPage: React.FC = () => {
     try {
       await deleteFlockMutation.mutateAsync(flockToDelete.id);
       
-      const savedFlockId = localStorage.getItem('active_flock_id');
-      if (savedFlockId === flockToDelete.id) {
-        localStorage.removeItem('active_flock_id');
+      const cached = getActiveFlockCache();
+      if (cached?.id === flockToDelete.id) {
+        clearActiveFlockCache();
       }
 
       refreshFlocks?.();
@@ -77,7 +78,7 @@ export const FlocksPage: React.FC = () => {
   };
 
   const handleSetActive = (flock: Flock) => {
-    localStorage.setItem('active_flock_id', flock.id);
+    saveActiveFlockCache(flock);
     navigate(`/dashboard?flock=${flock.id}`);
   };
 

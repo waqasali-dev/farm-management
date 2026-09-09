@@ -5,6 +5,7 @@ import { Sidebar } from './Sidebar.js';
 import { useFlocksQuery, useHealthQuery } from '../../lib/queries.js';
 import { Flock } from '../../types/index.js';
 import { CreateFlockModal } from '../../features/flocks/CreateFlockModal.js';
+import { saveActiveFlockCache, getActiveFlockCache } from '../../lib/browser-cache.js';
 
 export const AppLayout: React.FC = () => {
   const { data: flocks = [], refetch: refetchFlocks } = useFlocksQuery();
@@ -15,16 +16,17 @@ export const AppLayout: React.FC = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [searchParams] = useSearchParams();
 
-  // Synchronize active flock from URL, localStorage, or first active flock
+  // Synchronize active flock from URL, 3-day browser cache, or first active flock
   useEffect(() => {
     if (flocks.length === 0) return;
 
     const queryFlockId = searchParams.get('flock');
-    const savedFlockId = localStorage.getItem('active_flock_id');
+    const cachedSession = getActiveFlockCache();
+    const cachedFlockId = cachedSession?.id;
 
     let target = flocks.find((f) => f.id === queryFlockId);
-    if (!target && savedFlockId) {
-      target = flocks.find((f) => f.id === savedFlockId);
+    if (!target && cachedFlockId) {
+      target = flocks.find((f) => f.id === cachedFlockId);
     }
     if (!target) {
       target = flocks.find((f) => f.status === 'active') || flocks[0];
@@ -32,13 +34,13 @@ export const AppLayout: React.FC = () => {
 
     if (target) {
       setActiveFlock(target);
-      localStorage.setItem('active_flock_id', target.id);
+      saveActiveFlockCache(target);
     }
   }, [flocks, searchParams]);
 
   const handleSelectFlock = (flock: Flock) => {
     setActiveFlock(flock);
-    localStorage.setItem('active_flock_id', flock.id);
+    saveActiveFlockCache(flock);
   };
 
   return (

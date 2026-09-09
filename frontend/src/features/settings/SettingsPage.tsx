@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { Flock, HealthStatus } from '../../types/index.js';
 import { useHealthQuery } from '../../lib/queries.js';
-import { Database, Server, Terminal, RefreshCw } from 'lucide-react';
+import { Database, Server, Terminal, RefreshCw, HardDrive, Trash2, Check } from 'lucide-react';
+import { browserCache, getActiveFlockWithExpiry } from '../../lib/browser-cache.js';
 
 interface OutletContextType {
   activeFlock: Flock | null;
@@ -15,9 +16,19 @@ export const SettingsPage: React.FC = () => {
   const { data: healthData, refetch, isFetching } = useHealthQuery();
   const context = useOutletContext<OutletContextType>();
   const health = healthData || context.health;
+  const [cacheFeedback, setCacheFeedback] = useState<string | null>(null);
+  const [cacheStats, setCacheStats] = useState(() => browserCache.getDiagnostics());
 
   const isDbConnected = health?.connections.database.connected;
   const isRedisConnected = health?.connections.redis.connected;
+  const activeFlockMeta = getActiveFlockWithExpiry();
+
+  const handleClearCache = () => {
+    browserCache.clearAll();
+    setCacheStats(browserCache.getDiagnostics());
+    setCacheFeedback('Browser cache cleared successfully. All 3-day cached entries purged.');
+    setTimeout(() => setCacheFeedback(null), 4000);
+  };
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
@@ -31,8 +42,16 @@ export const SettingsPage: React.FC = () => {
         </p>
       </div>
 
+      {/* In-Page Cache Feedback Banner */}
+      {cacheFeedback && (
+        <div className="p-3 border border-black bg-zinc-100 text-xs font-mono flex items-center gap-2">
+          <Check className="w-4 h-4 text-black" />
+          <span>[BROWSER CACHE] {cacheFeedback}</span>
+        </div>
+      )}
+
       {/* Infrastructure Connection Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* Database Client Status Card */}
         <div className="panel p-4 sm:p-6 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] flex flex-col justify-between">
           <div>
@@ -122,6 +141,62 @@ export const SettingsPage: React.FC = () => {
             <span className="text-[10px] font-mono uppercase text-zinc-400 break-all">
               Configured in backend/.env: UPSTASH_REDIS_REST_URL
             </span>
+          </div>
+        </div>
+
+        {/* Browser Client Storage Card (3-Day TTL) */}
+        <div className="panel p-4 sm:p-6 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] flex flex-col justify-between">
+          <div>
+            <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 border-b border-black pb-3 mb-4">
+              <div className="flex items-center gap-2">
+                <HardDrive className="w-5 h-5 text-black shrink-0" />
+                <h2 className="text-xs font-bold uppercase tracking-wider">Browser Client Storage</h2>
+              </div>
+              <span className="text-[10px] font-mono px-2 py-0.5 uppercase font-bold border shrink-0 bg-black text-white border-black">
+                VALID 3 DAYS
+              </span>
+            </div>
+
+            <div className="space-y-3 text-xs font-mono">
+              <div>
+                <span className="text-zinc-500 block text-[10px] uppercase">Storage Engine</span>
+                <span className="font-semibold">HTML5 localStorage (TTL: 72 hours)</span>
+              </div>
+              <div>
+                <span className="text-zinc-500 block text-[10px] uppercase">Cached Active Flock</span>
+                <span className="font-semibold text-black break-words">
+                  {activeFlockMeta?.flock
+                    ? `[${activeFlockMeta.flock.flockCode || 'FLOCK'}] ${activeFlockMeta.flock.name || activeFlockMeta.flock.id} (${activeFlockMeta.remainingHours}h remaining)`
+                    : 'No flock session stored'}
+                </span>
+              </div>
+              <div>
+                <span className="text-zinc-500 block text-[10px] uppercase">Cached Farm Data</span>
+                <span className="text-zinc-700">
+                  {cacheStats.totalEntries} entries ({(cacheStats.totalSizeBytes / 1024).toFixed(1)} KB) • Flocks, KPIs & Drafts
+                </span>
+              </div>
+              <div>
+                <span className="text-zinc-500 block text-[10px] uppercase">Retention Policy</span>
+                <span className="text-zinc-700">
+                  Auto-opens last active flock when app is reopened within 3 days. Purges if older.
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6 pt-3 border-t border-zinc-200 flex items-center justify-between">
+            <span className="text-[10px] font-mono uppercase text-zinc-400">
+              Offline-ready cache
+            </span>
+            <button
+              onClick={handleClearCache}
+              className="flex items-center gap-1 text-[10px] font-mono font-bold uppercase border border-zinc-400 px-2.5 py-1 hover:bg-zinc-100 active:translate-x-0.5 active:translate-y-0.5"
+              title="Purge browser cache entries"
+            >
+              <Trash2 className="w-3 h-3 text-zinc-600" />
+              <span>Purge Cache</span>
+            </button>
           </div>
         </div>
       </div>
