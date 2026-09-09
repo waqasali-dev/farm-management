@@ -150,11 +150,30 @@ export const DailyRecordPage: React.FC = () => {
 
     setVaccineName(recordData.vaccination?.vaccineName || '');
     setVaccineNotes(recordData.vaccination?.notes || '');
+
+    // Immediate confirmation badge/toast for user upon loading data
+    setFeedback({
+      type: 'success',
+      message: recordData.hasExistingRecord
+        ? `Operational record for [${recordData.date}] successfully loaded from database (Committed log in update mode).`
+        : `New operational log ready for entry on [${recordData.date}]. Prior carryover balances calculated.`,
+    });
   }, [recordData]);
 
+  const shiftDate = (currentDateStr: string, daysOffset: number): string => {
+    const [y, m, d] = currentDateStr.split('-').map(Number);
+    const target = new Date(Date.UTC(y, m - 1, d + daysOffset));
+    return target.toISOString().split('T')[0];
+  };
+
   const handleDateChange = (newDate: string) => {
+    if (!newDate || newDate === date) return;
     setDate(newDate);
     setSearchParams({ date: newDate });
+    setFeedback({
+      type: 'success',
+      message: `Fetching operational records for [${newDate}] from database...`,
+    });
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -231,8 +250,8 @@ export const DailyRecordPage: React.FC = () => {
       setFeedback({
         type: 'success',
         message: isCommitted
-          ? `Daily operational record for ${date} successfully updated in database!`
-          : `Daily operational log successfully committed to database!`,
+          ? `Daily operational record for ${date} successfully updated! Cascading adjustments applied to all subsequent days.`
+          : `Daily operational log for ${date} successfully committed to database!`,
       });
     } catch (err: any) {
       setFeedback({ type: 'error', message: err.message || 'Failed to save daily record' });
@@ -370,14 +389,20 @@ export const DailyRecordPage: React.FC = () => {
                 <Lock className="w-3 h-3" />
                 READ-ONLY (CLOSED)
               </span>
+            ) : isRecordFetching ? (
+              <span className="flex items-center gap-1.5 text-[10px] font-mono border-2 border-black bg-zinc-100 text-black px-2.5 py-0.5 font-bold uppercase shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] animate-pulse">
+                <RefreshCw className="w-3 h-3 animate-spin text-black shrink-0" />
+                FETCHING RECORD ({date})...
+              </span>
             ) : isCommitted ? (
-              <span className="flex items-center gap-1.5 text-[10px] font-mono border-2 border-black bg-black text-white px-2 py-0.5 font-bold uppercase shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                Committed Log {isToday ? '(Today)' : ''} • Update Mode
+              <span className="flex items-center gap-1.5 text-[10px] font-mono border-2 border-black bg-black text-white px-2.5 py-0.5 font-bold uppercase shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+                LOADED: Committed Log ({date}) • Update Mode
               </span>
             ) : (
-              <span className="flex items-center gap-1 text-[10px] font-mono border border-zinc-400 bg-zinc-100 text-zinc-600 px-2 py-0.5 font-bold uppercase">
-                New Daily Entry {isToday ? '(Today)' : ''} • Pending Commit
+              <span className="flex items-center gap-1.5 text-[10px] font-mono border-2 border-zinc-500 bg-white text-black px-2.5 py-0.5 font-bold uppercase shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]">
+                <Check className="w-3 h-3 text-emerald-600 shrink-0" />
+                LOADED: New Daily Entry ({date}) • Ready to Commit
               </span>
             )}
           </div>
@@ -388,6 +413,16 @@ export const DailyRecordPage: React.FC = () => {
 
         {/* Date Selector & Save CTA */}
         <div className="flex items-center gap-2 sm:gap-3 flex-wrap w-full md:w-auto">
+          {/* Quick Prev Day */}
+          <button
+            type="button"
+            onClick={() => handleDateChange(shiftDate(date, -1))}
+            className="border border-black px-2.5 py-1.5 text-xs font-mono font-bold hover:bg-zinc-100 bg-white shrink-0 transition-colors shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]"
+            title="Previous Day"
+          >
+            ‹ Prev
+          </button>
+
           <div className="flex items-center gap-2 border border-black px-2.5 sm:px-3 py-1.5 bg-white flex-1 sm:flex-initial justify-between sm:justify-start">
             <Calendar className="w-4 h-4 text-black shrink-0" />
             <input
@@ -397,6 +432,16 @@ export const DailyRecordPage: React.FC = () => {
               className="text-xs font-mono font-bold uppercase focus:outline-none cursor-pointer bg-transparent w-full sm:w-auto"
             />
           </div>
+
+          {/* Quick Next Day */}
+          <button
+            type="button"
+            onClick={() => handleDateChange(shiftDate(date, 1))}
+            className="border border-black px-2.5 py-1.5 text-xs font-mono font-bold hover:bg-zinc-100 bg-white shrink-0 transition-colors shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]"
+            title="Next Day"
+          >
+            Next ›
+          </button>
 
           <button
             type="button"
@@ -431,6 +476,56 @@ export const DailyRecordPage: React.FC = () => {
               </span>
             </button>
           )}
+        </div>
+      </div>
+
+      {/* Date Sync Status & Cascade Info Bar */}
+      <div
+        className={`panel p-3 border-2 border-black font-mono text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-colors ${
+          isRecordFetching ? 'bg-zinc-100' : 'bg-white'
+        }`}
+      >
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {isRecordFetching ? (
+            <>
+              <div className="w-2.5 h-2.5 rounded-full bg-black animate-ping shrink-0" />
+              <span className="font-bold uppercase tracking-wider text-black flex items-center gap-1.5">
+                <RefreshCw className="w-3.5 h-3.5 animate-spin text-black shrink-0" />
+                Loading operational record for [{date}]...
+              </span>
+              <span className="text-[10px] bg-black text-white px-2 py-0.5 uppercase font-bold">
+                Server Syncing
+              </span>
+            </>
+          ) : (
+            <>
+              <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0 inline-block ring-2 ring-emerald-300" />
+              <span className="font-bold uppercase tracking-wider text-black">
+                Confirmed Loaded Date: [{date}]
+              </span>
+              <span className="text-zinc-600">
+                • Age: <strong className="text-black">{currentBirdAge.formatted}</strong> ({dayNameFormatted})
+              </span>
+              <span
+                className={`text-[10px] uppercase font-bold px-2 py-0.5 border ${
+                  isCommitted ? 'bg-black text-white border-black' : 'bg-zinc-100 text-zinc-700 border-zinc-400'
+                }`}
+              >
+                {isCommitted ? 'Committed Log • Auto-Cascading Enabled' : 'New Log • Ready for Input'}
+              </span>
+            </>
+          )}
+        </div>
+
+        <div className="text-[11px] text-zinc-600 flex items-center gap-3 flex-wrap">
+          {isCommitted && !isRecordFetching && (
+            <span className="text-emerald-700 font-bold flex items-center gap-1 text-xs">
+              <Check className="w-3.5 h-3.5" /> Recalculations Cascade Downstream
+            </span>
+          )}
+          <span className="bg-zinc-100 border border-black px-2 py-0.5 font-bold text-black text-[11px]">
+            {isRecordFetching ? 'Syncing balances...' : `Carried Feed Stock: ${previousFeedStockBags} bags`}
+          </span>
         </div>
       </div>
 
@@ -515,9 +610,15 @@ export const DailyRecordPage: React.FC = () => {
 
       {/* Main Tab Content */}
       <div className="panel p-4 sm:p-6 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]">
-        {isRecordLoading ? (
-          <div className="py-12 text-center text-xs font-mono text-zinc-500">
-            Loading daily record from database...
+        {isRecordFetching ? (
+          <div className="py-16 text-center text-xs font-mono text-zinc-700 flex flex-col items-center justify-center gap-3">
+            <RefreshCw className="w-7 h-7 animate-spin text-black" />
+            <span className="font-bold text-sm uppercase tracking-wider text-black">
+              Fetching operational log for [{date}]...
+            </span>
+            <span className="text-zinc-500 max-w-md">
+              Retrieving live opening stocks, cumulative mortality, and previous day carryovers from server.
+            </span>
           </div>
         ) : (
           <>

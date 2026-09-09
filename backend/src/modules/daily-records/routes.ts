@@ -268,8 +268,8 @@ async function computeDailyRecordPayload(flockId: string, date: string): Promise
         hasExistingRecord,
         birds: bird ? {
           mortality: bird.mortality,
-          moat: bird.moat || cumulativeMoat,
-          moatPercentage: bird.moatPercentage ? parseFloat(bird.moatPercentage) : cumulativeMoatPct,
+          moat: cumulativeMoat,
+          moatPercentage: cumulativeMoatPct,
           lightHours: bird.lightHours ? parseFloat(bird.lightHours) : null,
           maxTemperature: bird.maxTemperature ? parseFloat(bird.maxTemperature) : null,
           minTemperature: bird.minTemperature ? parseFloat(bird.minTemperature) : null,

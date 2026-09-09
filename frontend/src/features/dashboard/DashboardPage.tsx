@@ -51,6 +51,12 @@ export const DashboardPage: React.FC = () => {
     refetch,
   } = useDashboardQuery(activeFlock?.id, date);
 
+  const shiftDate = (currentDateStr: string, daysOffset: number): string => {
+    const [y, m, d] = currentDateStr.split('-').map(Number);
+    const target = new Date(Date.UTC(y, m - 1, d + daysOffset));
+    return target.toISOString().split('T')[0];
+  };
+
   const handleDateChange = (newDate: string) => {
     setDate(newDate);
     setSearchParams({ flock: activeFlock?.id || '', date: newDate });
@@ -116,9 +122,32 @@ export const DashboardPage: React.FC = () => {
         </div>
 
         {/* Date Selector & Daily Entry Quick Link */}
-        <div className="flex items-center gap-2.5 sm:gap-3 flex-wrap w-full md:w-auto">
-          <div className="flex items-center gap-2 border border-black px-3 py-1.5 bg-white shrink-0">
-            <Calendar className="w-3.5 h-3.5 text-black" />
+        <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap w-full md:w-auto">
+          {/* Loading or Loaded status confirmation */}
+          {isFetching ? (
+            <span className="flex items-center gap-1.5 text-[10px] font-mono border-2 border-black bg-zinc-100 text-black px-2.5 py-1 font-bold uppercase shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] animate-pulse shrink-0">
+              <RefreshCw className="w-3 h-3 animate-spin text-black shrink-0" />
+              Loading {date}...
+            </span>
+          ) : data ? (
+            <span className="flex items-center gap-1.5 text-[10px] font-mono border-2 border-black bg-black text-white px-2.5 py-1 font-bold uppercase shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] shrink-0">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+              Loaded: {date}
+            </span>
+          ) : null}
+
+          {/* Quick Prev Day */}
+          <button
+            type="button"
+            onClick={() => handleDateChange(shiftDate(date, -1))}
+            className="border border-black px-2.5 py-1.5 text-xs font-mono font-bold hover:bg-zinc-100 bg-white shrink-0 transition-colors shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]"
+            title="Previous Day"
+          >
+            ‹ Prev
+          </button>
+
+          <div className="flex items-center gap-2 border border-black px-2.5 sm:px-3 py-1.5 bg-white shrink-0">
+            <Calendar className="w-3.5 h-3.5 text-black shrink-0" />
             <input
               type="date"
               value={date}
@@ -127,15 +156,29 @@ export const DashboardPage: React.FC = () => {
             />
           </div>
 
+          {/* Quick Next Day */}
           <button
+            type="button"
+            onClick={() => handleDateChange(shiftDate(date, 1))}
+            className="border border-black px-2.5 py-1.5 text-xs font-mono font-bold hover:bg-zinc-100 bg-white shrink-0 transition-colors shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]"
+            title="Next Day"
+          >
+            Next ›
+          </button>
+
+          <button
+            type="button"
             onClick={() => handleDateChange(getLocalDateString())}
-            className="border border-black px-2.5 py-1.5 text-xs font-mono uppercase hover:bg-zinc-100 font-semibold shrink-0"
+            className={`border border-black px-2.5 py-1.5 text-xs font-mono uppercase font-semibold transition-colors shrink-0 ${
+              date === getLocalDateString() ? 'bg-black text-white' : 'hover:bg-zinc-100 bg-white'
+            }`}
             title="Jump to today"
           >
             Today
           </button>
 
           <button
+            type="button"
             onClick={() => refetch()}
             className="border border-black p-2 hover:bg-zinc-100 shrink-0"
             title="Refresh"
@@ -144,6 +187,7 @@ export const DashboardPage: React.FC = () => {
           </button>
 
           <button
+            type="button"
             onClick={() => navigate(`/flocks/${activeFlock.id}/daily?date=${date}`)}
             className="flex items-center justify-center gap-2 bg-black text-white px-4 py-2 sm:py-1.5 text-xs font-bold uppercase tracking-wider hover:bg-zinc-800 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] w-full sm:w-auto shrink-0"
           >

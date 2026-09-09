@@ -98,16 +98,17 @@ export function useDailyRecordQuery(flockId?: string, date?: string) {
   });
 }
 
-export function useSaveDailyRecordMutation(flockId: string, date: string) {
+export function useSaveDailyRecordMutation(flockId: string, _date: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (payload: any) => api.saveDailyRecord(flockId, payload),
-    onSuccess: (_, variables) => {
-      const targetDate = variables?.date || date;
-      // Invalidate daily record, dashboard, and reports queries
-      queryClient.invalidateQueries({ queryKey: queryKeys.dailyRecord(flockId, targetDate) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard(flockId, targetDate) });
+    onSuccess: () => {
+      // Invalidate the entire daily-record, dashboard, and reports query families for this flock
+      // This ensures that retroactive changes to any day immediately cascade to all subsequent days!
+      queryClient.invalidateQueries({ queryKey: ['daily-record', flockId] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard', flockId] });
       queryClient.invalidateQueries({ queryKey: ['reports', flockId] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.flocks.detail(flockId) });
     },
   });
 }

@@ -58,7 +58,8 @@ export const dashboardRoutes: FastifyPluginAsync = async (fastify) => {
 
         const totalArrivalBags = feedHistory.reduce((sum, r) => sum + r.arrivalBags, 0);
         const totalUsedBags = feedHistory.reduce((sum, r) => sum + r.usedBags, 0);
-        const remainingBags = Math.max(0, totalArrivalBags - totalUsedBags);
+        const totalReturnedBags = feedHistory.reduce((sum, r) => sum + (r.returnedBags || 0), 0);
+        const remainingBags = Math.max(0, totalArrivalBags - totalUsedBags - totalReturnedBags);
         const todayFeedRecord = feedHistory.find((r) => r.date === todayDate);
         const todayUsedBags = todayFeedRecord ? todayFeedRecord.usedBags : 0;
         const feedPerBirdGrams = calculateFeedConsumptionGramsPerBird(todayUsedBags, remainingBirds);
@@ -215,6 +216,7 @@ export const dashboardRoutes: FastifyPluginAsync = async (fastify) => {
           feed: {
             totalReceivedBags: totalArrivalBags,
             totalUsedBags,
+            totalReturnedBags,
             remainingBags,
             todayUsedBags,
             consumptionGramsPerBird: feedPerBirdGrams,
