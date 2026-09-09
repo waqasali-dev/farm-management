@@ -68,8 +68,8 @@ export const DailyAuditPdfModal: React.FC<DailyAuditPdfModalProps> = ({
   const livingBirds = Math.max(0, initialBirds - cumulativeMoat);
   const moatPct = record?.birds?.moatPercentage ?? 0;
   const birdAge = calculateBirdAge(date, flock.startDate);
-  const dayNames = ['Sunday (00)', 'Monday (01)', 'Tuesday (02)', 'Wednesday (03)', 'Thursday (04)', 'Friday (05)', 'Saturday (06)'];
-  const dayName = dayNames[birdAge.day] || `Day ${birdAge.day}`;
+  const calendarWeekday = new Date(date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long' });
+  const dayName = `Day 0${birdAge.day} • ${calendarWeekday}`;
 
   // Feed math
   const prevFeed = record?.priorBalances?.previousFeedStockBags ?? 0;
@@ -227,14 +227,18 @@ export const DailyAuditPdfModal: React.FC<DailyAuditPdfModalProps> = ({
 
               {/* 1. Bird Flock Population & Environment */}
               <div className="border border-black">
-                <div className="bg-zinc-200 border-b border-black px-2.5 py-1 font-bold text-[11px] uppercase tracking-wider">
-                  1. Bird Flock Status & Environment
+                <div className="bg-zinc-200 border-b border-black px-2.5 py-1 font-bold text-[11px] uppercase tracking-wider flex justify-between items-center">
+                  <span>1. Bird Flock Status & Environment</span>
+                  <span className={`text-[10px] px-2 py-0.5 border border-black font-bold uppercase ${record.birds?.manureRemoved ? 'bg-black text-white' : 'bg-white text-zinc-700'}`}>
+                    Manure Out: {record.birds?.manureRemoved ? 'YES (Cleaned Today)' : 'NO'}
+                  </span>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-black text-[11px]">
+                <div className="grid grid-cols-2 sm:grid-cols-5 divide-y sm:divide-y-0 sm:divide-x divide-black text-[11px]">
                   <div className="p-2"><span className="text-zinc-500 block text-[10px]">TODAY MORTALITY</span><strong>{record.birds?.mortality ?? 0} birds</strong></div>
                   <div className="p-2"><span className="text-zinc-500 block text-[10px]">CUMULATIVE MOAT</span><strong>{cumulativeMoat} ({moatPct}%)</strong></div>
                   <div className="p-2"><span className="text-zinc-500 block text-[10px]">LIGHT DURATION</span><strong>{record.birds?.lightHours ? `${record.birds.lightHours} hrs` : 'N/A'}</strong></div>
                   <div className="p-2"><span className="text-zinc-500 block text-[10px]">MAX / MIN TEMP</span><strong>{record.birds?.maxTemperature ?? '--'}°C / {record.birds?.minTemperature ?? '--'}°C</strong></div>
+                  <div className="p-2 bg-zinc-50"><span className="text-zinc-500 block text-[10px]">MANURE OUT</span><strong className={record.birds?.manureRemoved ? 'text-black font-bold' : 'text-zinc-500'}>{record.birds?.manureRemoved ? 'YES' : 'NO'}</strong></div>
                 </div>
               </div>
 

@@ -111,40 +111,54 @@ describe('Calculation Engine (Section 53)', () => {
   });
 
   describe('Bird Age & Day Convention', () => {
-    it('observes Sunday = Day 00 convention and 1-indexed week with two-digit format', () => {
-      // 2026-09-06 is Sunday, flock started 2026-08-01 (36 days -> Week 6, Day 00)
-      const ageSunday = calculateBirdAge('2026-09-06', '2026-08-01');
-      expect(ageSunday.day).toBe(0); // Sunday = Day 00
-      expect(ageSunday.week).toBe(6);
-      expect(ageSunday.formatted).toBe('W06-D00');
+    it('calculates flock age starting at Week 01, Day 01 on placement date regardless of weekday', () => {
+      // Flock placed on 2026-05-05 (Tuesday) -> Day 01 of Week 01
+      const day1 = calculateBirdAge('2026-05-05', '2026-05-05');
+      expect(day1.day).toBe(1);
+      expect(day1.week).toBe(1);
+      expect(day1.totalDays).toBe(0);
+      expect(day1.formatted).toBe('W01-D01');
 
-      // 2026-09-07 is Monday (37 days -> Week 6, Day 01)
-      const ageMonday = calculateBirdAge('2026-09-07', '2026-08-01');
-      expect(ageMonday.day).toBe(1); // Monday = Day 01
-      expect(ageMonday.week).toBe(6);
-      expect(ageMonday.formatted).toBe('W06-D01');
+      // Next day: 2026-05-06 -> Day 02 of Week 01
+      const day2 = calculateBirdAge('2026-05-06', '2026-05-05');
+      expect(day2.day).toBe(2);
+      expect(day2.week).toBe(1);
+      expect(day2.totalDays).toBe(1);
+      expect(day2.formatted).toBe('W01-D02');
 
-      // Day 15 test from user example: 5 April to 20 April (15 days -> Week 03)
-      const userExample = calculateBirdAge('2026-04-20', '2026-04-05');
-      expect(userExample.week).toBe(3);
-      expect(userExample.formatted).toContain('W03-');
+      // 7th day: 2026-05-11 -> Day 07 of Week 01
+      const day7 = calculateBirdAge('2026-05-11', '2026-05-05');
+      expect(day7.day).toBe(7);
+      expect(day7.week).toBe(1);
+      expect(day7.totalDays).toBe(6);
+      expect(day7.formatted).toBe('W01-D07');
+
+      // 8th day: 2026-05-12 -> Day 01 of Week 02
+      const day8 = calculateBirdAge('2026-05-12', '2026-05-05');
+      expect(day8.day).toBe(1);
+      expect(day8.week).toBe(2);
+      expect(day8.totalDays).toBe(7);
+      expect(day8.formatted).toBe('W02-D01');
     });
 
     it('calculates flock start date from reference date and known age (Week 17, Day 03 on 2026-05-05)', () => {
-      // Elapsed days = (17 - 1) * 7 + 3 = 112 + 3 = 115 days
+      // Elapsed days = (17 - 1) * 7 + (3 - 1) = 112 + 2 = 114 days
       const result = calculateStartDateFromAge('2026-05-05', 17, 3);
-      expect(result.elapsedDays).toBe(115);
-      expect(result.startDate).toBe('2026-01-10');
+      expect(result.elapsedDays).toBe(114);
+      expect(result.startDate).toBe('2026-01-11');
 
-      // Verify reverse calculation matches Week 17 and 115 totalDays
+      // Verify reverse calculation matches Week 17 Day 3 and 114 totalDays
       const ageAtRef = calculateBirdAge('2026-05-05', result.startDate);
       expect(ageAtRef.week).toBe(17);
-      expect(ageAtRef.totalDays).toBe(115);
+      expect(ageAtRef.day).toBe(3);
+      expect(ageAtRef.totalDays).toBe(114);
+      expect(ageAtRef.formatted).toBe('W17-D03');
 
-      // Verify calculation for today (2026-09-09)
+      // Verify calculation for 2026-09-09
       const ageToday = calculateBirdAge('2026-09-09', result.startDate);
-      expect(ageToday.totalDays).toBe(242);
+      expect(ageToday.totalDays).toBe(241);
       expect(ageToday.week).toBe(35);
+      expect(ageToday.day).toBe(4);
     });
   });
 

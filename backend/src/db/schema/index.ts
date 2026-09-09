@@ -49,6 +49,7 @@ export const birdDailyRecords = pgTable('bird_daily_records', {
   lightHours: numeric('light_hours', { precision: 4, scale: 2 }),
   maxTemperature: numeric('max_temperature', { precision: 5, scale: 2 }),
   minTemperature: numeric('min_temperature', { precision: 5, scale: 2 }),
+  manureRemoved: boolean('manure_removed').default(false).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (t) => [

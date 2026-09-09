@@ -84,6 +84,7 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
             eggProductionEggs: eggEggs,
             eggProductionPct: eggPct,
             dieselUsedLiters: diesel ? parseFloat(diesel.usedLiters) : 0,
+            manureRemoved: Boolean(b.manureRemoved),
           };
         });
 
@@ -196,6 +197,7 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
             lightHours: r.lightHours ? parseFloat(r.lightHours) : null,
             maxTemp: r.maxTemperature ? parseFloat(r.maxTemperature) : null,
             minTemp: r.minTemperature ? parseFloat(r.minTemperature) : null,
+            manureRemoved: Boolean(r.manureRemoved),
           };
         });
 

@@ -101,6 +101,7 @@ export interface UnifiedDailyRecord {
     lightHours?: number | null;
     maxTemperature?: number | null;
     minTemperature?: number | null;
+    manureRemoved?: boolean;
   };
   feed: {
     arrivalBags: number;

@@ -84,6 +84,7 @@ CREATE TABLE IF NOT EXISTS bird_daily_records (
     light_hours NUMERIC(4, 2) CHECK (light_hours >= 0 AND light_hours <= 24),
     max_temperature NUMERIC(5, 2),
     min_temperature NUMERIC(5, 2),
+    manure_removed BOOLEAN DEFAULT FALSE NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
 );

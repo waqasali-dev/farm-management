@@ -65,6 +65,7 @@ export const DailyRecordPage: React.FC = () => {
   const [lightHours, setLightHours] = useState<number | ''>('');
   const [maxTemp, setMaxTemp] = useState<number | ''>('');
   const [minTemp, setMinTemp] = useState<number | ''>('');
+  const [manureRemoved, setManureRemoved] = useState<boolean>(false);
 
   const [feedArrivalBags, setFeedArrivalBags] = useState<number>(0);
   const [feedUsedBags, setFeedUsedBags] = useState<number>(0);
@@ -116,6 +117,7 @@ export const DailyRecordPage: React.FC = () => {
     setLightHours(recordData.birds.lightHours ?? '');
     setMaxTemp(recordData.birds.maxTemperature ?? '');
     setMinTemp(recordData.birds.minTemperature ?? '');
+    setManureRemoved(Boolean(recordData.birds.manureRemoved));
 
     setFeedArrivalBags(recordData.feed.arrivalBags);
     setFeedUsedBags(recordData.feed.usedBags);
@@ -195,6 +197,7 @@ export const DailyRecordPage: React.FC = () => {
           lightHours: lightHours === '' ? null : Number(lightHours),
           maxTemperature: maxTemp === '' ? null : Number(maxTemp),
           minTemperature: minTemp === '' ? null : Number(minTemp),
+          manureRemoved,
         },
         feed: {
           arrivalBags: Number(feedArrivalBags) || 0,
@@ -365,12 +368,12 @@ export const DailyRecordPage: React.FC = () => {
   );
 
   // Bird Age Calculations (Requirements 6.1 - 6.2)
-  const currentBirdAge = flock ? calculateBirdAge(date, flock.startDate) : { week: 1, day: 0, totalDays: 0, formatted: 'W01-D00' };
+  const currentBirdAge = flock ? calculateBirdAge(date, flock.startDate) : { week: 1, day: 1, totalDays: 0, formatted: 'W01-D01' };
 
   const isToday = date === getLocalDateString();
   const isCommitted = Boolean(recordData?.hasExistingRecord);
-  const dayNames = ['Sunday (00)', 'Monday (01)', 'Tuesday (02)', 'Wednesday (03)', 'Thursday (04)', 'Friday (05)', 'Saturday (06)'];
-  const dayNameFormatted = dayNames[currentBirdAge.day] || `Day ${currentBirdAge.day}`;
+  const calendarDayName = new Date(date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long' });
+  const dayNameFormatted = `Day 0${currentBirdAge.day} • ${calendarDayName}`;
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
@@ -731,6 +734,34 @@ export const DailyRecordPage: React.FC = () => {
                       Collective died % of flock
                     </span>
                   </div>
+                </div>
+
+                {/* Manure Out Today Checkbox */}
+                <div className="border border-black bg-zinc-50 p-4 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                  <label className="flex items-start sm:items-center gap-3 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      disabled={flock?.status === 'closed'}
+                      checked={manureRemoved}
+                      onChange={(e) => setManureRemoved(e.target.checked)}
+                      className="w-5 h-5 accent-black cursor-pointer mt-0.5 sm:mt-0 shrink-0"
+                    />
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-bold uppercase tracking-wider text-black">
+                          Manure Removed Today (Manure Out)
+                        </span>
+                        {manureRemoved && (
+                          <span className="text-[10px] font-mono font-bold bg-black text-white px-2 py-0.5 uppercase">
+                            ✓ Manure Cleaned Out
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] font-mono text-zinc-600 mt-0.5">
+                        Check this box if shed manure was cleared and removed from the poultry farm today.
+                      </p>
+                    </div>
+                  </label>
                 </div>
               </div>
             )}

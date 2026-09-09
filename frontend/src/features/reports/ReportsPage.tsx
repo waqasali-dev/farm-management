@@ -199,6 +199,7 @@ export const ReportsPage: React.FC = () => {
                       <th className="py-2.5 px-3">Light Hours</th>
                       <th className="py-2.5 px-3">Max Temp (°C)</th>
                       <th className="py-2.5 px-3">Min Temp (°C)</th>
+                      <th className="py-2.5 px-3">Manure Out</th>
                       <th className="py-2.5 px-3 text-right">Audit PDF</th>
                     </tr>
                   </thead>
@@ -216,12 +217,21 @@ export const ReportsPage: React.FC = () => {
                           <td className="py-2 px-3">{row.lightHours ?? '---'}</td>
                           <td className="py-2 px-3">{row.maxTemp ?? '---'}</td>
                           <td className="py-2 px-3">{row.minTemp ?? '---'}</td>
+                          <td className="py-2 px-3">
+                            {row.manureRemoved ? (
+                              <span className="bg-black text-white px-1.5 py-0.5 text-[10px] font-bold uppercase">
+                                YES
+                              </span>
+                            ) : (
+                              <span className="text-zinc-400">---</span>
+                            )}
+                          </td>
                           {renderPdfButton(row.date)}
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={9} className="py-8 text-center text-zinc-400">
+                        <td colSpan={10} className="py-8 text-center text-zinc-400">
                           No mortality records found.
                         </td>
                       </tr>

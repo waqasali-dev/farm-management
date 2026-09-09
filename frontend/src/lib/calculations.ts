@@ -52,12 +52,19 @@ export function calculateBirdAge(targetDateStr: string, startDateStr: string): {
   totalDays: number;
   formatted: string;
 } {
-  const target = new Date(targetDateStr);
-  const start = new Date(startDateStr);
+  const target = new Date(targetDateStr + (targetDateStr.includes('T') ? '' : 'T00:00:00'));
+  const start = new Date(startDateStr + (startDateStr.includes('T') ? '' : 'T00:00:00'));
   const diffTime = target.getTime() - start.getTime();
-  const totalDays = Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
-  const day = target.getDay(); // 0 = Sunday (Day 00)
-  const week = Math.floor(totalDays / 7) + 1; // 1-indexed: Day 0-6 = Week 1, Day 14-20 = Week 3
+  const totalDays = Math.max(0, Math.round(diffTime / (1000 * 60 * 60 * 24)));
+
+  // Flock Age calculation:
+  // Starts on placement date (targetDate === startDate) as Week 01, Day 01.
+  // Day runs 1 through 7 within each week:
+  // totalDays = 0 => week 1, day 1 (W01-D01)
+  // totalDays = 6 => week 1, day 7 (W01-D07)
+  // totalDays = 7 => week 2, day 1 (W02-D01)
+  const week = Math.floor(totalDays / 7) + 1;
+  const day = (totalDays % 7) + 1;
   const formattedWeek = week < 10 ? `0${week}` : `${week}`;
   const formattedDay = day < 10 ? `0${day}` : `${day}`;
   return {
@@ -76,10 +83,10 @@ export function calculateStartDateFromAge(
   startDate: string;
   elapsedDays: number;
 } {
-  const ref = new Date(referenceDateStr + 'T00:00:00');
+  const ref = new Date(referenceDateStr + (referenceDateStr.includes('T') ? '' : 'T00:00:00'));
   const safeWeek = Math.max(1, Math.floor(Number(week) || 1));
-  const safeDay = Math.max(0, Math.min(6, Math.floor(Number(day) || 0)));
-  const elapsedDays = (safeWeek - 1) * 7 + safeDay;
+  const safeDay = Math.max(1, Math.min(7, Math.floor(Number(day) || 1)));
+  const elapsedDays = (safeWeek - 1) * 7 + (safeDay - 1);
 
   const start = new Date(ref);
   start.setDate(start.getDate() - elapsedDays);

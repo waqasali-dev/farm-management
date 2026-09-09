@@ -48,12 +48,12 @@ export const CreateFlockModal: React.FC<CreateFlockModalProps> = ({
 
   const derivedStart = useMemo(() => {
     if (!calcFromAge || !refDate || knownWeek === '' || knownDay === '') return null;
-    return calculateStartDateFromAge(refDate, Number(knownWeek) || 1, Number(knownDay) || 0);
+    return calculateStartDateFromAge(refDate, Number(knownWeek) || 1, Number(knownDay) || 1);
   }, [calcFromAge, refDate, knownWeek, knownDay]);
 
   const handleApplyDerivedStart = (rDate: string, w: number | '', d: number | '') => {
     if (rDate && w !== '' && d !== '') {
-      const res = calculateStartDateFromAge(rDate, Number(w) || 1, Number(d) || 0);
+      const res = calculateStartDateFromAge(rDate, Number(w) || 1, Number(d) || 1);
       setStartDate(res.startDate);
     }
   };
@@ -348,13 +348,13 @@ export const CreateFlockModal: React.FC<CreateFlockModalProps> = ({
                           }}
                           className="w-full border border-black px-2.5 py-1.5 text-xs font-mono bg-white focus:outline-none focus:ring-1 focus:ring-black"
                         >
-                          <option value={0}>Day 00 (Sunday)</option>
-                          <option value={1}>Day 01 (Monday)</option>
-                          <option value={2}>Day 02 (Tuesday)</option>
-                          <option value={3}>Day 03 (Wednesday)</option>
-                          <option value={4}>Day 04 (Thursday)</option>
-                          <option value={5}>Day 05 (Friday)</option>
-                          <option value={6}>Day 06 (Saturday)</option>
+                          <option value={1}>Day 01 (1st day of week)</option>
+                          <option value={2}>Day 02 (2nd day of week)</option>
+                          <option value={3}>Day 03 (3rd day of week)</option>
+                          <option value={4}>Day 04 (4th day of week)</option>
+                          <option value={5}>Day 05 (5th day of week)</option>
+                          <option value={6}>Day 06 (6th day of week)</option>
+                          <option value={7}>Day 07 (7th day of week)</option>
                         </select>
                       </div>
                     </div>

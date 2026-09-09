@@ -40,8 +40,8 @@ export function createDailyAuditPdf(
   const livingBirds = Math.max(0, initialBirds - cumulativeMoat);
   const moatPct = record.birds?.moatPercentage ?? 0;
   const birdAge = calculateBirdAge(date, flock.startDate);
-  const dayNames = ['Sunday (00)', 'Monday (01)', 'Tuesday (02)', 'Wednesday (03)', 'Thursday (04)', 'Friday (05)', 'Saturday (06)'];
-  const dayName = dayNames[birdAge.day] || `Day ${birdAge.day}`;
+  const calendarWeekday = new Date(date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long' });
+  const dayName = `Day 0${birdAge.day} (${calendarWeekday})`;
 
   // Feed math
   const prevFeed = record.priorBalances?.previousFeedStockBags ?? 0;
@@ -153,10 +153,10 @@ export function createDailyAuditPdf(
       [
         'Light Duration',
         record.birds?.lightHours !== null && record.birds?.lightHours !== undefined ? `${record.birds.lightHours} hrs` : 'N/A',
-        'Max Temperature',
-        record.birds?.maxTemperature !== null && record.birds?.maxTemperature !== undefined ? `${record.birds.maxTemperature} °C` : 'N/A',
-        'Min Temperature',
-        record.birds?.minTemperature !== null && record.birds?.minTemperature !== undefined ? `${record.birds.minTemperature} °C` : 'N/A',
+        'Max / Min Temperature',
+        `${record.birds?.maxTemperature ?? '--'} °C / ${record.birds?.minTemperature ?? '--'} °C`,
+        'Manure Out (Today)',
+        record.birds?.manureRemoved ? 'YES (CLEANED OUT)' : 'NO',
       ],
     ],
   });

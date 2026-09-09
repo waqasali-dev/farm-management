@@ -18,6 +18,8 @@ const dailyRecordSaveSchema = z.object({
     lightHours: z.number().min(0).max(24).optional().nullable(),
     maxTemperature: z.number().optional().nullable(),
     minTemperature: z.number().optional().nullable(),
+    manureRemoved: z.boolean().optional().nullable(),
+    manuerRemoved: z.boolean().optional().nullable(),
   }).optional(),
   feed: z.object({
     arrivalBags: z.number().int().min(0, 'Arrival bags cannot be negative'),
@@ -273,7 +275,8 @@ async function computeDailyRecordPayload(flockId: string, date: string): Promise
           lightHours: bird.lightHours ? parseFloat(bird.lightHours) : null,
           maxTemperature: bird.maxTemperature ? parseFloat(bird.maxTemperature) : null,
           minTemperature: bird.minTemperature ? parseFloat(bird.minTemperature) : null,
-        } : { mortality: 0, moat: cumulativeMoat, moatPercentage: cumulativeMoatPct, lightHours: null, maxTemperature: null, minTemperature: null },
+          manureRemoved: bird.manureRemoved ?? false,
+        } : { mortality: 0, moat: cumulativeMoat, moatPercentage: cumulativeMoatPct, lightHours: null, maxTemperature: null, minTemperature: null, manureRemoved: false },
         feed: feed ? {
           arrivalBags: feed.arrivalBags,
           usedBags: feed.usedBags,
@@ -595,6 +598,7 @@ export const dailyRecordRoutes: FastifyPluginAsync = async (fastify) => {
               .from(schema.birdDailyRecords)
               .where(and(eq(schema.birdDailyRecords.flockId, flockId), eq(schema.birdDailyRecords.date, date)));
 
+            const isManureRemoved = Boolean(data.birds.manureRemoved ?? data.birds.manuerRemoved);
             if (existing) {
               await tx
                 .update(schema.birdDailyRecords)
@@ -605,6 +609,7 @@ export const dailyRecordRoutes: FastifyPluginAsync = async (fastify) => {
                   lightHours: data.birds.lightHours ? String(data.birds.lightHours) : null,
                   maxTemperature: data.birds.maxTemperature ? String(data.birds.maxTemperature) : null,
                   minTemperature: data.birds.minTemperature ? String(data.birds.minTemperature) : null,
+                  manureRemoved: isManureRemoved,
                   updatedAt: new Date(),
                 })
                 .where(eq(schema.birdDailyRecords.id, existing.id));
@@ -619,6 +624,7 @@ export const dailyRecordRoutes: FastifyPluginAsync = async (fastify) => {
                 lightHours: data.birds.lightHours ? String(data.birds.lightHours) : null,
                 maxTemperature: data.birds.maxTemperature ? String(data.birds.maxTemperature) : null,
                 minTemperature: data.birds.minTemperature ? String(data.birds.minTemperature) : null,
+                manureRemoved: isManureRemoved,
               });
             }
 
