@@ -54,6 +54,7 @@ CREATE TABLE IF NOT EXISTS flocks (
     farm_id UUID NOT NULL REFERENCES farms(id) ON DELETE CASCADE,
     flock_code VARCHAR(50) NOT NULL,
     name VARCHAR(255),
+    company_name VARCHAR(255) DEFAULT 'S. S. FEED MILLS (PVT) LTD',
     start_date DATE NOT NULL,
     initial_birds INTEGER NOT NULL CHECK (initial_birds > 0),
     egg_tracking_enabled BOOLEAN DEFAULT FALSE NOT NULL,

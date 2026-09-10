@@ -3,6 +3,7 @@ export interface Flock {
   farmId: string;
   flockCode: string;
   name: string;
+  companyName?: string;
   startDate: string; // YYYY-MM-DD
   initialBirds: number;
   eggTrackingEnabled: boolean;
@@ -24,6 +25,7 @@ export interface DashboardData {
     id: string;
     flockCode: string;
     name: string;
+    companyName?: string;
     startDate: string;
     initialBirds: number;
     status: 'active' | 'closed';

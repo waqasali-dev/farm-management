@@ -31,7 +31,7 @@ export function createDailyAuditPdf(
     format: 'a4',
   });
 
-  const companyName = options?.companyName || 'S. S. FEED MILLS (PVT) LTD';
+  const companyName = options?.companyName || flock.companyName || 'S. S. FEED MILLS (PVT) LTD';
   const subTitle = options?.subTitle || 'POULTRY LAYER SHED • DAILY OPERATIONAL & PRODUCTION AUDIT REPORT';
 
   const date = record.date;
@@ -383,7 +383,7 @@ export function createDailyAuditPdf(
       [
         'PREPARED BY (OPERATOR / ASST):\n\n___________________________________\nSignature / Date',
         'SHED SUPERVISOR:\n\n___________________________________\nSignature / Date',
-        'FARM MANAGER:\n\n___________________________________\nDr. Muhammad Shahid / Signature',
+        'FARM MANAGER:\n\n___________________________________\nSignature / Date',
       ],
     ],
   });
@@ -393,7 +393,7 @@ export function createDailyAuditPdf(
   doc.setFontSize(6.5);
   doc.setFont('helvetica', 'normal');
   doc.text(
-    `System Generated Audit Sheet • Generated on ${new Date().toLocaleString()} • Farm Data Management System • S. S. Feed Mills Layer Shed`,
+    `System Generated Audit Sheet • Generated on ${new Date().toLocaleString()} • Farm Data Management System • ${companyName}`,
     105,
     pageHeight - 6,
     { align: 'center' }

@@ -50,6 +50,7 @@ export const api = {
 
   createFlock: (data: {
     name: string;
+    companyName?: string;
     startDate: string;
     initialBirds: number;
     eggTrackingEnabled: boolean;
@@ -68,7 +69,7 @@ export const api = {
     body: JSON.stringify(data),
   }),
 
-  updateFlock: (flockId: string, data: { name?: string; eggTrackingEnabled?: boolean }) =>
+  updateFlock: (flockId: string, data: { name?: string; companyName?: string; eggTrackingEnabled?: boolean }) =>
     fetchJson<Flock>(`/flocks/${flockId}`, {
       method: 'PATCH',
       body: JSON.stringify(data),

@@ -207,7 +207,7 @@ export const DailyAuditPdfModal: React.FC<DailyAuditPdfModalProps> = ({
               {/* Company Header Block (Modeled after S.S. Feed Mills Paper Report) */}
               <div className="text-center border-b-2 border-black pb-3 space-y-1">
                 <h1 className="text-base sm:text-lg font-black uppercase tracking-wider text-black">
-                  S. S. FEED MILLS (PVT) LTD
+                  {flock.companyName || 'S. S. FEED MILLS (PVT) LTD'}
                 </h1>
                 <h2 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-zinc-700">
                   POULTRY LAYER SHED • DAILY OPERATIONAL & PRODUCTION AUDIT REPORT
@@ -383,7 +383,7 @@ export const DailyAuditPdfModal: React.FC<DailyAuditPdfModalProps> = ({
                   </div>
                   <div className="space-y-4">
                     <div className="font-bold text-zinc-700">FARM MANAGER</div>
-                    <div className="border-b border-black w-3/4 mx-auto pb-1 text-black font-bold">Dr. Muhammad Shahid</div>
+                    <div className="border-b border-black w-3/4 mx-auto pb-1 text-zinc-400">Signature / Date</div>
                   </div>
                 </div>
               </div>

@@ -26,6 +26,7 @@ export const flocks = pgTable('flocks', {
   farmId: uuid('farm_id').references(() => farms.id).notNull(),
   flockCode: varchar('flock_code', { length: 50 }).notNull(),
   name: varchar('name', { length: 255 }),
+  companyName: varchar('company_name', { length: 255 }).default('S. S. FEED MILLS (PVT) LTD'),
   startDate: date('start_date').notNull(),
   initialBirds: integer('initial_birds').notNull(),
   eggTrackingEnabled: boolean('egg_tracking_enabled').default(false).notNull(),

@@ -25,6 +25,7 @@ export interface MockFlock {
   farmId: string;
   flockCode: string;
   name: string;
+  companyName?: string;
   startDate: string; // YYYY-MM-DD
   initialBirds: number;
   eggTrackingEnabled: boolean;
@@ -183,6 +184,7 @@ class MockDataStore {
       farmId: DEMO_FARM_ID,
       flockCode: 'FL-001',
       name: 'Layer Flock Alpha (High Yield)',
+      companyName: 'S. S. FEED MILLS (PVT) LTD',
       startDate: '2026-08-01',
       initialBirds: 99000,
       eggTrackingEnabled: true,
@@ -196,6 +198,7 @@ class MockDataStore {
       farmId: DEMO_FARM_ID,
       flockCode: 'FL-002',
       name: 'Broiler Flock Beta (Meat Batch)',
+      companyName: 'S. S. FEED MILLS (PVT) LTD',
       startDate: '2026-08-15',
       initialBirds: 50000,
       eggTrackingEnabled: false,

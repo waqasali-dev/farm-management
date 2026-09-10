@@ -27,6 +27,7 @@ export const CreateFlockModal: React.FC<CreateFlockModalProps> = ({
 
   // Common Fields
   const [name, setName] = useState('');
+  const [companyName, setCompanyName] = useState('S. S. FEED MILLS (PVT) LTD');
   const [startDate, setStartDate] = useState(todayStr);
   const [initialBirds, setInitialBirds] = useState<number | ''>(10000);
   const [eggTrackingEnabled, setEggTrackingEnabled] = useState(false);
@@ -154,6 +155,7 @@ export const CreateFlockModal: React.FC<CreateFlockModalProps> = ({
     try {
       const newFlock = await createFlockMutation.mutateAsync({
         name: name.trim(),
+        companyName: companyName.trim() || 'S. S. FEED MILLS (PVT) LTD',
         startDate,
         initialBirds: numInitial,
         eggTrackingEnabled,
@@ -173,6 +175,7 @@ export const CreateFlockModal: React.FC<CreateFlockModalProps> = ({
       onClose();
       // Reset form
       setName('');
+      setCompanyName('S. S. FEED MILLS (PVT) LTD');
       setStartDate(todayStr);
       setInitialBirds(10000);
       setEggTrackingEnabled(false);
@@ -245,6 +248,23 @@ export const CreateFlockModal: React.FC<CreateFlockModalProps> = ({
               <span>[ERROR] {error}</span>
             </div>
           )}
+
+          {/* Company / Enterprise Name */}
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider mb-1 text-black">
+              Company / Enterprise Name
+            </label>
+            <input
+              type="text"
+              value={companyName}
+              onChange={(e) => setCompanyName(e.target.value)}
+              placeholder="e.g. S. S. FEED MILLS (PVT) LTD"
+              className="w-full border border-black px-3 py-2 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-black"
+            />
+            <p className="text-[10px] text-zinc-500 font-mono mt-1">
+              Main enterprise heading displayed on all official Daily Operational & Production Audit Reports.
+            </p>
+          </div>
 
           {/* Flock Name */}
           <div>

@@ -8,6 +8,7 @@ import { flushFlockCache, flushFlocksListCache, getCache, setCache } from '../..
 
 const createFlockSchema = z.object({
   name: z.string().min(1, 'Flock name is required'),
+  companyName: z.string().optional(),
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Start date must be YYYY-MM-DD'),
   initialBirds: z.number().int().positive('Initial birds must be greater than zero'),
   eggTrackingEnabled: z.boolean().default(false),
@@ -25,6 +26,7 @@ const createFlockSchema = z.object({
 
 const updateFlockSchema = z.object({
   name: z.string().min(1).optional(),
+  companyName: z.string().optional(),
   eggTrackingEnabled: z.boolean().optional(),
 });
 
@@ -124,7 +126,7 @@ export const flockRoutes: FastifyPluginAsync = async (fastify) => {
       return errorResponse(parsed.error.errors[0].message, 'VALIDATION_ERROR', parsed.error.format());
     }
 
-    const { name, startDate, initialBirds, eggTrackingEnabled, isRunningFlock, openingBalances } = parsed.data;
+    const { name, companyName, startDate, initialBirds, eggTrackingEnabled, isRunningFlock, openingBalances } = parsed.data;
 
     if (isRunningFlock && openingBalances && openingBalances.cumulativeMortality >= initialBirds) {
       reply.status(400);
@@ -167,6 +169,7 @@ export const flockRoutes: FastifyPluginAsync = async (fastify) => {
               farmId: farm.id,
               flockCode,
               name,
+              companyName: companyName?.trim() || 'S. S. FEED MILLS (PVT) LTD',
               startDate,
               initialBirds,
               eggTrackingEnabled,
@@ -257,6 +260,7 @@ export const flockRoutes: FastifyPluginAsync = async (fastify) => {
       farmId: mockStore.farms[0]?.id || 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
       flockCode,
       name,
+      companyName: companyName?.trim() || 'S. S. FEED MILLS (PVT) LTD',
       startDate,
       initialBirds,
       eggTrackingEnabled,
