@@ -11,17 +11,22 @@ const createMedicineSchema = z.object({
 
 const MEDICINES_CACHE_KEY = 'medicines:list';
 
+import { ensureStandardMedicinesSeeded } from '../../db/seed-medicines.js';
+
 export const medicineRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get('/medicines', async () => {
     // 1. Check Redis first
     const cached = await getCache<any[]>(MEDICINES_CACHE_KEY);
-    if (cached) {
+    if (cached && cached.length > 0) {
       return successResponse(cached);
     }
 
     if (isDatabaseConnected()) {
       try {
-        const list = await db.select().from(schema.medicines);
+        let list = await db.select().from(schema.medicines);
+        if (list.length === 0) {
+          list = await ensureStandardMedicinesSeeded();
+        }
         await setCache(MEDICINES_CACHE_KEY, list, 300);
         return successResponse(list);
       } catch (err) {

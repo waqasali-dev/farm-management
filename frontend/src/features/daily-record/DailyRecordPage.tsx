@@ -1636,11 +1636,25 @@ export const DailyRecordPage: React.FC = () => {
                           key={t}
                           type="button"
                           disabled={flock?.status === 'closed'}
-                          onClick={() => setWaterType(t)}
+                          onClick={() => {
+                            setWaterType(t);
+                            if (t === 'medicine' && medicineList.length === 0) {
+                              const defaultMed = medicinesMaster.length > 0
+                                ? medicinesMaster[0]
+                                : { id: '', name: 'Tylosin Tartrate' };
+                              setMedicineList([
+                                {
+                                  medicineId: defaultMed.id || '',
+                                  name: defaultMed.name || 'Tylosin Tartrate',
+                                  dosagePerLiter: 1.0,
+                                },
+                              ]);
+                            }
+                          }}
                           className={`flex-1 py-2 text-xs font-mono uppercase font-bold border ${
                             waterType === t
                               ? 'bg-black text-white border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'
-                              : 'bg-white text-zinc-600 border-zinc-400'
+                              : 'bg-white text-zinc-600 border-zinc-400 hover:bg-zinc-100'
                           }`}
                         >
                           {t}
@@ -1671,81 +1685,130 @@ export const DailyRecordPage: React.FC = () => {
                 {waterType === 'medicine' && (
                   <div className="border border-black p-4 bg-zinc-50 space-y-3">
                     <div className="flex items-center justify-between border-b border-zinc-200 pb-2">
-                      <span className="text-xs font-bold uppercase tracking-wider">
-                        Prescribed Medicines for Today
-                      </span>
-                      {flock?.status === 'active' && (
+                      <div>
+                        <span className="text-xs font-bold uppercase tracking-wider block">
+                          Prescribed Medicines for Today
+                        </span>
+                        <span className="text-[10px] font-mono text-zinc-500">
+                          Select standard poultry medicines from dropdown or type any custom medicine name.
+                        </span>
+                      </div>
+                      {flock?.status !== 'closed' && (
                         <button
                           type="button"
                           onClick={() => {
-                            const firstMed = medicinesMaster[0];
-                            if (firstMed) {
-                              setMedicineList([
-                                ...medicineList,
-                                { medicineId: firstMed.id, name: firstMed.name, dosagePerLiter: 1.0 },
-                              ]);
-                            }
+                            const defaultMed = medicinesMaster.length > 0
+                              ? medicinesMaster[0]
+                              : { id: '', name: 'Tylosin Tartrate' };
+                            setMedicineList([
+                              ...medicineList,
+                              {
+                                medicineId: defaultMed.id || '',
+                                name: defaultMed.name || 'Tylosin Tartrate',
+                                dosagePerLiter: 1.0,
+                              },
+                            ]);
                           }}
-                          className="flex items-center gap-1 border border-black px-2.5 py-1 text-[11px] font-mono uppercase hover:bg-zinc-100"
+                          className="flex items-center gap-1 bg-black text-white border border-black px-3 py-1.5 text-[11px] font-mono font-bold uppercase hover:bg-zinc-800 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-colors active:translate-x-0.5 active:translate-y-0.5"
                         >
-                          <Plus className="w-3 h-3" /> Add Medicine
+                          <Plus className="w-3.5 h-3.5" /> Add Medicine
                         </button>
                       )}
                     </div>
 
+                    {/* Shared datalist for standard medicines auto-complete */}
+                    <datalist id="available-medicines-catalog">
+                      {medicinesMaster.map((med) => (
+                        <option key={med.id} value={med.name} />
+                      ))}
+                    </datalist>
+
                     {medicineList.length === 0 ? (
-                      <p className="text-xs font-mono text-zinc-400 py-2 text-center">
-                        No medicines assigned yet. Click "Add Medicine".
-                      </p>
+                      <div className="text-center py-4 border border-dashed border-zinc-300 bg-white">
+                        <p className="text-xs font-mono text-zinc-500 mb-2">
+                          No medicines added yet for this date.
+                        </p>
+                        {flock?.status !== 'closed' && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const defaultMed = medicinesMaster.length > 0
+                                ? medicinesMaster[0]
+                                : { id: '', name: 'Tylosin Tartrate' };
+                              setMedicineList([
+                                {
+                                  medicineId: defaultMed.id || '',
+                                  name: defaultMed.name || 'Tylosin Tartrate',
+                                  dosagePerLiter: 1.0,
+                                },
+                              ]);
+                            }}
+                            className="inline-flex items-center gap-1 border border-black px-3 py-1 text-xs font-mono uppercase hover:bg-zinc-100"
+                          >
+                            <Plus className="w-3 h-3" /> Add First Medicine
+                          </button>
+                        )}
+                      </div>
                     ) : (
                       <div className="space-y-2">
                         {medicineList.map((m, idx) => (
-                          <div key={idx} className="flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-3 border border-zinc-300 p-2.5 bg-white">
-                            <select
-                              value={m.medicineId}
-                              disabled={flock?.status === 'closed'}
-                              onChange={(e) => {
-                                const found = medicinesMaster.find((x) => x.id === e.target.value);
-                                const updated = [...medicineList];
-                                updated[idx] = {
-                                  ...updated[idx],
-                                  medicineId: e.target.value,
-                                  name: found?.name || '',
-                                };
-                                setMedicineList(updated);
-                              }}
-                              className="w-full sm:flex-1 border border-black px-2 py-1.5 text-xs font-mono uppercase bg-white"
-                            >
-                              {medicinesMaster.map((med) => (
-                                <option key={med.id} value={med.id}>
-                                  {med.name}
-                                </option>
-                              ))}
-                            </select>
+                          <div
+                            key={idx}
+                            className="flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-3 border border-black p-2.5 bg-white shadow-sm"
+                          >
+                            <div className="w-full sm:flex-1 relative">
+                              <input
+                                type="text"
+                                list="available-medicines-catalog"
+                                disabled={flock?.status === 'closed'}
+                                value={m.name || ''}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  const matched = medicinesMaster.find(
+                                    (x) => x.name.toLowerCase() === val.trim().toLowerCase()
+                                  );
+                                  const updated = [...medicineList];
+                                  updated[idx] = {
+                                    ...updated[idx],
+                                    name: val,
+                                    medicineId: matched ? matched.id : '',
+                                  };
+                                  setMedicineList(updated);
+                                }}
+                                placeholder="Select or type medicine name..."
+                                className="w-full border border-black px-2.5 py-1.5 text-xs font-mono uppercase bg-white focus:outline-none"
+                              />
+                            </div>
 
-                            <div className="flex items-center gap-1 text-xs font-mono">
+                            <div className="flex items-center gap-1 text-xs font-mono shrink-0">
+                              <span className="text-[10px] text-zinc-500 uppercase">Dosage:</span>
                               <input
                                 type="number"
                                 step="0.1"
                                 min="0"
                                 disabled={flock?.status === 'closed'}
-                                value={m.dosagePerLiter || ''}
+                                value={m.dosagePerLiter ?? ''}
                                 onChange={(e) => {
+                                  const val = e.target.value;
                                   const updated = [...medicineList];
-                                  updated[idx].dosagePerLiter = parseFloat(e.target.value) || 0;
+                                  updated[idx] = {
+                                    ...updated[idx],
+                                    dosagePerLiter: val === '' ? undefined : Math.max(0, parseFloat(val) || 0),
+                                  };
                                   setMedicineList(updated);
                                 }}
-                                placeholder="Dosage"
-                                className="w-20 border border-black px-2 py-1 text-xs font-mono"
+                                placeholder="1.0"
+                                className="w-16 border border-black px-2 py-1 text-xs font-mono text-center focus:outline-none"
                               />
-                              <span>ml/L</span>
+                              <span className="font-bold">ml/L</span>
                             </div>
 
-                            {flock?.status === 'active' && (
+                            {flock?.status !== 'closed' && (
                               <button
                                 type="button"
                                 onClick={() => setMedicineList(medicineList.filter((_, i) => i !== idx))}
-                                className="ml-auto text-zinc-500 hover:text-black p-1"
+                                className="ml-auto text-zinc-400 hover:text-red-600 p-1 transition-colors"
+                                title="Delete medicine entry"
                               >
                                 <Trash2 className="w-4 h-4" />
                               </button>

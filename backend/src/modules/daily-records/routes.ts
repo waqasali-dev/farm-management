@@ -63,8 +63,8 @@ const dailyRecordSaveSchema = z.object({
     type: z.enum(['water', 'medicine']),
     waterLiters: z.number().min(0),
     medicines: z.array(z.object({
-      medicineId: z.string(),
-      name: z.string(),
+      medicineId: z.string().optional(),
+      name: z.string().optional(),
       dosagePerLiter: z.number().optional(),
     })).optional(),
   }).optional(),
@@ -946,11 +946,55 @@ export const dailyRecordRoutes: FastifyPluginAsync = async (fastify) => {
             await tx.delete(schema.medicineEntries).where(eq(schema.medicineEntries.dailyRecordId, dailyRecId));
             if (data.medicine.medicines && data.medicine.medicines.length > 0) {
               for (const med of data.medicine.medicines) {
-                await tx.insert(schema.medicineEntries).values({
-                  dailyRecordId: dailyRecId,
-                  medicineId: med.medicineId,
-                  dosagePerLiter: med.dosagePerLiter ? String(med.dosagePerLiter) : null,
-                });
+                const medName = med.name?.trim() || '';
+                const medId = med.medicineId;
+                let targetMed: any = null;
+
+                // 1. Try finding by ID
+                if (medId) {
+                  try {
+                    const [foundById] = await tx
+                      .select()
+                      .from(schema.medicines)
+                      .where(eq(schema.medicines.id, medId));
+                    targetMed = foundById;
+                  } catch {
+                    // Ignore UUID parse issues if medId was temporary
+                  }
+                }
+
+                // 2. Try finding by Name
+                if (!targetMed && medName) {
+                  const [foundByName] = await tx
+                    .select()
+                    .from(schema.medicines)
+                    .where(eq(schema.medicines.name, medName));
+                  targetMed = foundByName;
+                }
+
+                // 3. Auto-create in master catalog if new custom medicine
+                if (!targetMed && medName) {
+                  let [farm] = await tx.select().from(schema.farms).limit(1);
+                  if (!farm) {
+                    [farm] = await tx.insert(schema.farms).values({ name: 'Central Poultry Estate' }).returning();
+                  }
+                  [targetMed] = await tx
+                    .insert(schema.medicines)
+                    .values({
+                      farmId: farm.id,
+                      name: medName,
+                      active: true,
+                    })
+                    .returning();
+                }
+
+                if (targetMed) {
+                  await tx.insert(schema.medicineEntries).values({
+                    dailyRecordId: dailyRecId,
+                    medicineId: targetMed.id,
+                    dosagePerLiter: med.dosagePerLiter != null ? String(med.dosagePerLiter) : null,
+                  });
+                }
               }
             }
           }
@@ -1224,8 +1268,8 @@ export const dailyRecordRoutes: FastifyPluginAsync = async (fastify) => {
         existing.type = data.medicine.type;
         existing.waterLiters = data.medicine.waterLiters;
         existing.medicines = (data.medicine.medicines || []).map((m) => ({
-          medicineId: m.medicineId,
-          name: m.name,
+          medicineId: m.medicineId || crypto.randomUUID(),
+          name: m.name || 'Medicine',
           dosagePerLiter: m.dosagePerLiter,
         }));
         existing.updatedAt = new Date();
@@ -1238,8 +1282,8 @@ export const dailyRecordRoutes: FastifyPluginAsync = async (fastify) => {
           type: data.medicine.type,
           waterLiters: data.medicine.waterLiters,
           medicines: (data.medicine.medicines || []).map((m) => ({
-            medicineId: m.medicineId,
-            name: m.name,
+            medicineId: m.medicineId || crypto.randomUUID(),
+            name: m.name || 'Medicine',
             dosagePerLiter: m.dosagePerLiter,
           })),
           createdAt: new Date(),

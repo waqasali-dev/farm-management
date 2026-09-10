@@ -1,4 +1,4 @@
-import jsPDF from 'jspdf';
+import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Flock, UnifiedDailyRecord } from '../types/index.js';
 import {
@@ -338,9 +338,15 @@ export function createDailyAuditPdf(
 
   currentY = (doc as any).lastAutoTable.finalY + 3;
 
-  // SECTION 7 & 8: Weight, Water & Medication
-  const medDetails = (record.medicine?.medicines || []).length > 0
-    ? (record.medicine?.medicines || []).map((m) => `${m.name}${m.dosagePerLiter ? ` (${m.dosagePerLiter} ml/L)` : ''}`).join(', ')
+  // SECTION 7: Body Weight, Uniformity & Water / Medication Audit
+  const meds = record.medicine?.medicines || [];
+  const medDetails = meds.length > 0
+    ? meds
+        .map((m) => {
+          const dosage = m.dosagePerLiter != null && m.dosagePerLiter > 0 ? ` (${m.dosagePerLiter} ml/L)` : '';
+          return `${m.name || 'Medicine'}${dosage}`;
+        })
+        .join(', ')
     : 'No medication administered';
 
   autoTable(doc, {
@@ -370,7 +376,7 @@ export function createDailyAuditPdf(
 
   currentY = (doc as any).lastAutoTable.finalY + 3;
 
-  // SECTION 9: Vaccination & Clinical Events
+  // SECTION 8: Vaccination & Clinical Events
   autoTable(doc, {
     startY: currentY,
     theme: 'grid',
@@ -390,7 +396,7 @@ export function createDailyAuditPdf(
 
   currentY = (doc as any).lastAutoTable.finalY + 5;
 
-  // SECTION 10: Official Sign-off & Verification Block (Matching user's official sheet)
+  // SECTION 9: Official Sign-off & Verification Block (Matching user's official sheet)
   autoTable(doc, {
     startY: currentY,
     theme: 'grid',
