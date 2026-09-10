@@ -52,3 +52,58 @@ export function calculateRemainingEggStock(
   }
   return total;
 }
+
+/**
+ * Normalizes Peti and Trays using the canonical 12 trays = 1 peti rule.
+ * Converts all Petis into Trays: totalTrays = peti * 12 + trays
+ * Then converts totalTrays into Petis and remaining Trays (0 to 11).
+ * Trays can never exceed 11 because 12 trays constitute 1 Peti.
+ */
+export function normalizePetiTrays(peti: number, trays: number): {
+  peti: number;
+  trays: number;
+  totalTrays: number;
+  totalEggs: number;
+  formatted: string;
+} {
+  const safePeti = Math.max(0, Math.floor(peti || 0));
+  const safeTrays = Math.max(0, Math.floor(trays || 0));
+  const totalTrays = safePeti * 12 + safeTrays;
+  const normalizedPeti = Math.floor(totalTrays / 12);
+  const normalizedTrays = totalTrays % 12; // always 0 to 11
+  const totalEggs = totalTrays * CONSTANTS.EGGS.EGGS_PER_TRAY;
+  const formatted = `${normalizedPeti} Peti, ${normalizedTrays} Trays`;
+
+  return {
+    peti: normalizedPeti,
+    trays: normalizedTrays,
+    totalTrays,
+    totalEggs,
+    formatted,
+  };
+}
+
+/**
+ * Sums an array or series of Petis and Trays by first converting all to Trays,
+ * summing the Trays, and then converting back into normalized Petis and Trays (0-11).
+ */
+export function sumPetiTrays(items: { peti: number; trays: number }[]): {
+  peti: number;
+  trays: number;
+  totalTrays: number;
+  totalEggs: number;
+  formatted: string;
+} {
+  let totalTrays = 0;
+  for (const item of items) {
+    const p = Math.max(0, Math.floor(item.peti || 0));
+    const t = Math.max(0, Math.floor(item.trays || 0));
+    totalTrays += p * 12 + t;
+  }
+  const peti = Math.floor(totalTrays / 12);
+  const trays = totalTrays % 12;
+  const totalEggs = totalTrays * CONSTANTS.EGGS.EGGS_PER_TRAY;
+  const formatted = `${peti} Peti, ${trays} Trays`;
+
+  return { peti, trays, totalTrays, totalEggs, formatted };
+}

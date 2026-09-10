@@ -139,6 +139,8 @@ CREATE TABLE IF NOT EXISTS egg_daily_records (
     date DATE NOT NULL,
     production_peti INTEGER DEFAULT 0 NOT NULL CHECK (production_peti >= 0),
     production_trays INTEGER DEFAULT 0 NOT NULL CHECK (production_trays >= 0 AND production_trays < 12),
+    cumulative_production_peti INTEGER DEFAULT 0 NOT NULL CHECK (cumulative_production_peti >= 0),
+    cumulative_production_trays INTEGER DEFAULT 0 NOT NULL CHECK (cumulative_production_trays >= 0 AND cumulative_production_trays < 12),
     sold_peti INTEGER DEFAULT 0 NOT NULL CHECK (sold_peti >= 0),
     sold_trays INTEGER DEFAULT 0 NOT NULL CHECK (sold_trays >= 0 AND sold_trays < 12),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,

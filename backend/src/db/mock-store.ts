@@ -93,6 +93,8 @@ export interface MockEggRecord {
   date: string;
   productionPeti: number;
   productionTrays: number;
+  cumulativeProductionPeti?: number;
+  cumulativeProductionTrays?: number;
   soldPeti: number;
   soldTrays: number;
   createdAt: Date;

@@ -146,7 +146,8 @@ export const ReportsPage: React.FC = () => {
                       <th className="py-2.5 px-3">Moat %</th>
                       <th className="py-2.5 px-3">Feed (Bags)</th>
                       <th className="py-2.5 px-3">Feed (g/bird)</th>
-                      {activeFlock.eggTrackingEnabled && <th className="py-2.5 px-3">Eggs (Total)</th>}
+                      {activeFlock.eggTrackingEnabled && <th className="py-2.5 px-3">Eggs (Today)</th>}
+                      {activeFlock.eggTrackingEnabled && <th className="py-2.5 px-3">Total Eggs Till Date</th>}
                       {activeFlock.eggTrackingEnabled && <th className="py-2.5 px-3">Egg Prod %</th>}
                       <th className="py-2.5 px-3">Diesel (L)</th>
                       <th className="py-2.5 px-3 text-right">Audit PDF</th>
@@ -170,6 +171,9 @@ export const ReportsPage: React.FC = () => {
                             <td className="py-2 px-3 font-tabular">{row.eggProductionEggs.toLocaleString()}</td>
                           )}
                           {activeFlock.eggTrackingEnabled && (
+                            <td className="py-2 px-3 font-bold">{row.cumulativeProductionFormatted || `${(row.cumulativeProductionEggs ?? 0).toLocaleString()} eggs`}</td>
+                          )}
+                          {activeFlock.eggTrackingEnabled && (
                             <td className="py-2 px-3 font-semibold">{row.eggProductionPct}%</td>
                           )}
                           <td className="py-2 px-3">{row.dieselUsedLiters}</td>
@@ -178,7 +182,7 @@ export const ReportsPage: React.FC = () => {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={activeFlock.eggTrackingEnabled ? 12 : 10} className="py-8 text-center text-zinc-400">
+                        <td colSpan={activeFlock.eggTrackingEnabled ? 13 : 10} className="py-8 text-center text-zinc-400">
                           No operational logs found for this flock.
                         </td>
                       </tr>
@@ -368,13 +372,14 @@ export const ReportsPage: React.FC = () => {
               )}
 
               {reportType === 'eggs' && (
-                <table className="w-full text-left border-collapse text-xs font-mono min-w-[980px]">
+                <table className="w-full text-left border-collapse text-xs font-mono min-w-[1060px]">
                   <thead>
                     <tr className="border-b border-black bg-zinc-100 text-[10px] uppercase text-zinc-600">
                       <th className="py-2.5 px-3">Date</th>
                       <th className="py-2.5 px-3">Opening Stock</th>
                       <th className="py-2.5 px-3">Production (P/T)</th>
                       <th className="py-2.5 px-3">Prod (Eggs)</th>
+                      <th className="py-2.5 px-3 bg-zinc-200 text-black font-bold">Total Produced Till Date (P/T)</th>
                       <th className="py-2.5 px-3">Sold (P/T)</th>
                       <th className="py-2.5 px-3">Sold (Eggs)</th>
                       <th className="py-2.5 px-3">Gift Use</th>
@@ -394,6 +399,7 @@ export const ReportsPage: React.FC = () => {
                           <td className="py-2 px-3">{row.openingStockFormatted}</td>
                           <td className="py-2 px-3">{row.productionPeti}P, {row.productionTrays}T</td>
                           <td className="py-2 px-3 font-tabular">{row.productionEggs.toLocaleString()}</td>
+                          <td className="py-2 px-3 font-bold bg-zinc-50">{row.cumulativeProductionFormatted || `${row.cumulativeProductionPeti ?? 0}P, ${row.cumulativeProductionTrays ?? 0}T`}</td>
                           <td className="py-2 px-3">{row.soldPeti}P, {row.soldTrays}T</td>
                           <td className="py-2 px-3 font-tabular">{row.soldEggs.toLocaleString()}</td>
                           <td className="py-2 px-3 text-zinc-600">{row.giftUse}</td>
@@ -407,7 +413,7 @@ export const ReportsPage: React.FC = () => {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={13} className="py-8 text-center text-zinc-400">
+                        <td colSpan={14} className="py-8 text-center text-zinc-400">
                           No egg records found or egg tracking disabled.
                         </td>
                       </tr>

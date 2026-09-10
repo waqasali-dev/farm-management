@@ -10,6 +10,8 @@ import {
 import {
   petiTraysToEggs,
   eggsToPetiTrays,
+  normalizePetiTrays,
+  sumPetiTrays,
   calculateProductionPercentage,
   calculateFeedPerBirdGrams,
   calculateWaterPerBirdMl,
@@ -359,6 +361,14 @@ export const DailyRecordPage: React.FC = () => {
   const estUsageEggs = eggUsage.reduce((sum, u) => sum + petiTraysToEggs(Number(u.peti) || 0, Number(u.trays) || 0), 0);
   const estRemainingEggStockEggs = Math.max(0, previousEggStockEggs + estProdEggs - estSoldEggs - estUsageEggs);
   const estRemainingEggStockBreakdown = eggsToPetiTrays(estRemainingEggStockEggs);
+
+  // Cumulative Egg Production Till Date (12 Trays = 1 Peti Canonical Normalization)
+  const priorProduced = priorBalances?.priorTotalProducedEggs ?? { peti: 0, trays: 0, totalTrays: 0, totalEggs: 0, formatted: '0 Peti, 0 Trays' };
+  const todayNormalizedProd = normalizePetiTrays(Number(prodPeti) || 0, Number(prodTrays) || 0);
+  const liveCumulativeEggProduction = sumPetiTrays([
+    { peti: priorProduced.peti, trays: priorProduced.trays },
+    { peti: todayNormalizedProd.peti, trays: todayNormalizedProd.trays },
+  ]);
 
   // Diesel Calculations (Requirements 5.1 - 5.3)
   const previousDieselStockLiters = priorBalances?.previousDieselStockLiters ?? 0;
@@ -1147,22 +1157,34 @@ export const DailyRecordPage: React.FC = () => {
                       Egg Production, Sales & Stock
                     </h3>
                     <p className="text-[11px] font-mono text-zinc-500">
-                      1 Peti = 12 Trays = 360 Eggs • 1 Tray = 30 Eggs
+                      1 Peti = 12 Trays = 360 Eggs • 1 Tray = 30 Eggs • Trays cannot exceed 11
                     </p>
                   </div>
-                  <div className="border border-black bg-zinc-100 px-3 py-1.5 text-xs font-mono">
-                    <span className="text-[10px] text-zinc-500 uppercase block">Prev. Day Remaining Stock (Auto)</span>
-                    <span className="font-bold text-black">{previousEggStock.formatted}</span>
-                    <span className="text-[10px] text-zinc-500 ml-1">({previousEggStockEggs.toLocaleString()} eggs)</span>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <div className="border border-black bg-zinc-100 px-3 py-1.5 text-xs font-mono">
+                      <span className="text-[10px] text-zinc-500 uppercase block">Prev. Day Remaining Stock</span>
+                      <span className="font-bold text-black">{previousEggStock.formatted}</span>
+                      <span className="text-[10px] text-zinc-500 ml-1">({previousEggStockEggs.toLocaleString()} eggs)</span>
+                    </div>
+                    <div className="border border-black bg-black text-white px-3 py-1.5 text-xs font-mono">
+                      <span className="text-[10px] text-zinc-400 uppercase block">Prior Produced Till Yesterday</span>
+                      <span className="font-bold text-white">{priorProduced.formatted}</span>
+                      <span className="text-[10px] text-zinc-400 ml-1">({priorProduced.totalEggs.toLocaleString()} eggs)</span>
+                    </div>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Production */}
                   <div className="border border-black p-4 bg-zinc-50 space-y-4">
-                    <span className="text-xs font-bold uppercase tracking-wider block border-b border-black pb-1">
-                      Today's Production
-                    </span>
+                    <div className="flex items-center justify-between border-b border-black pb-1">
+                      <span className="text-xs font-bold uppercase tracking-wider">
+                        Today's Production
+                      </span>
+                      <span className="text-[10px] font-mono text-zinc-500">
+                        Total Till Date: <strong className="text-black">{liveCumulativeEggProduction.formatted}</strong>
+                      </span>
+                    </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="block text-[11px] font-mono uppercase mb-1">Production Peti</label>
@@ -1176,20 +1198,43 @@ export const DailyRecordPage: React.FC = () => {
                         />
                       </div>
                       <div>
-                        <label className="block text-[11px] font-mono uppercase mb-1">Production Trays</label>
+                        <label className="block text-[11px] font-mono uppercase mb-1">Production Trays (0-11)</label>
                         <input
                           type="number"
                           min="0"
                           max="11"
                           disabled={flock?.status === 'closed'}
                           value={prodTrays}
-                          onChange={(e) => setProdTrays(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value, 10);
+                            if (isNaN(val)) {
+                              setProdTrays(0);
+                              return;
+                            }
+                            if (val >= 12) {
+                              const norm = normalizePetiTrays(Number(prodPeti) || 0, val);
+                              setProdPeti(norm.peti);
+                              setProdTrays(norm.trays);
+                            } else {
+                              setProdTrays(Math.max(0, val));
+                            }
+                          }}
+                          onBlur={() => {
+                            const norm = normalizePetiTrays(Number(prodPeti) || 0, Number(prodTrays) || 0);
+                            setProdPeti(norm.peti);
+                            setProdTrays(norm.trays);
+                          }}
                           className="w-full border border-black px-2 py-1.5 text-xs font-mono"
                         />
                       </div>
                     </div>
-                    <div className="text-xs font-mono text-zinc-700">
-                      Total Eggs: <span className="font-bold">{estProdEggs.toLocaleString()}</span> • Production %: <span className="font-bold">{estProdPercentage}%</span>
+                    <div className="text-xs font-mono text-zinc-700 space-y-1 pt-1 border-t border-zinc-200">
+                      <div>
+                        Today Produced: <span className="font-bold">{estProdEggs.toLocaleString()} eggs</span> • Laying Rate: <span className="font-bold">{estProdPercentage}%</span>
+                      </div>
+                      <div className="text-[11px] text-zinc-600">
+                        Total Cumulative Produced Till Date: <span className="font-bold text-black">{liveCumulativeEggProduction.formatted}</span> ({liveCumulativeEggProduction.totalEggs.toLocaleString()} eggs)
+                      </div>
                     </div>
                   </div>
 
@@ -1211,19 +1256,37 @@ export const DailyRecordPage: React.FC = () => {
                         />
                       </div>
                       <div>
-                        <label className="block text-[11px] font-mono uppercase mb-1">Sold Trays</label>
+                        <label className="block text-[11px] font-mono uppercase mb-1">Sold Trays (0-11)</label>
                         <input
                           type="number"
                           min="0"
                           max="11"
                           disabled={flock?.status === 'closed'}
                           value={soldTrays}
-                          onChange={(e) => setSoldTrays(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value, 10);
+                            if (isNaN(val)) {
+                              setSoldTrays(0);
+                              return;
+                            }
+                            if (val >= 12) {
+                              const norm = normalizePetiTrays(Number(soldPeti) || 0, val);
+                              setSoldPeti(norm.peti);
+                              setSoldTrays(norm.trays);
+                            } else {
+                              setSoldTrays(Math.max(0, val));
+                            }
+                          }}
+                          onBlur={() => {
+                            const norm = normalizePetiTrays(Number(soldPeti) || 0, Number(soldTrays) || 0);
+                            setSoldPeti(norm.peti);
+                            setSoldTrays(norm.trays);
+                          }}
                           className="w-full border border-black px-2 py-1.5 text-xs font-mono"
                         />
                       </div>
                     </div>
-                    <div className="text-xs font-mono text-zinc-700">
+                    <div className="text-xs font-mono text-zinc-700 pt-1 border-t border-zinc-200">
                       Sold Eggs: <span className="font-bold">{petiTraysToEggs(soldPeti, soldTrays).toLocaleString()}</span>
                     </div>
                   </div>
@@ -1303,7 +1366,23 @@ export const DailyRecordPage: React.FC = () => {
                               value={u.trays}
                               onChange={(e) => {
                                 const updated = [...eggUsage];
-                                updated[idx].trays = Math.max(0, parseInt(e.target.value, 10) || 0);
+                                const val = parseInt(e.target.value, 10);
+                                if (isNaN(val)) {
+                                  updated[idx].trays = 0;
+                                } else if (val >= 12) {
+                                  const norm = normalizePetiTrays(Number(updated[idx].peti) || 0, val);
+                                  updated[idx].peti = norm.peti;
+                                  updated[idx].trays = norm.trays;
+                                } else {
+                                  updated[idx].trays = Math.max(0, val);
+                                }
+                                setEggUsage(updated);
+                              }}
+                              onBlur={() => {
+                                const updated = [...eggUsage];
+                                const norm = normalizePetiTrays(Number(updated[idx].peti) || 0, Number(updated[idx].trays) || 0);
+                                updated[idx].peti = norm.peti;
+                                updated[idx].trays = norm.trays;
                                 setEggUsage(updated);
                               }}
                               className="w-16 border border-black px-2 py-1 text-xs font-mono"
@@ -1330,20 +1409,29 @@ export const DailyRecordPage: React.FC = () => {
                   )}
                 </div>
 
-                {/* Live Egg Stock & Production % Callout (Requirements 2.1 - 2.5) */}
-                <div className="bg-zinc-100 border border-black p-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-xs font-mono">
+                {/* Live Egg Stock & Cumulative Production Callout */}
+                <div className="bg-zinc-100 border border-black p-4 grid grid-cols-2 md:grid-cols-5 gap-3 text-xs font-mono">
                   <div>
                     <span className="text-zinc-500 block text-[10px] uppercase">Opening Stock</span>
                     <span className="font-bold text-sm">{previousEggStock.peti}P, {previousEggStock.trays}T</span>
                     <span className="text-[10px] text-zinc-500 block">{previousEggStockEggs.toLocaleString()} eggs</span>
                   </div>
                   <div>
-                    <span className="text-zinc-500 block text-[10px] uppercase">Today Net Movement</span>
+                    <span className="text-zinc-500 block text-[10px] uppercase">Today Movement</span>
                     <span className="font-bold text-sm text-black">
                       +{estProdEggs.toLocaleString()} / -{(estSoldEggs + estUsageEggs).toLocaleString()}
                     </span>
                     <span className="text-[10px] text-zinc-500 block">
-                      Prod: {Number(prodPeti) || 0}P, {Number(prodTrays) || 0}T • Sold: {Number(soldPeti) || 0}P, {Number(soldTrays) || 0}T
+                      Prod: {Number(prodPeti) || 0}P, {Number(prodTrays) || 0}T
+                    </span>
+                  </div>
+                  <div className="bg-black text-white border border-black p-2.5 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                    <span className="text-zinc-400 block text-[10px] uppercase font-bold">Total Produced Till Date</span>
+                    <span className="font-bold text-base text-white font-tabular block">
+                      {liveCumulativeEggProduction.formatted}
+                    </span>
+                    <span className="text-[10px] text-zinc-400 block">
+                      {liveCumulativeEggProduction.totalEggs.toLocaleString()} cumulative eggs
                     </span>
                   </div>
                   <div className="bg-white border border-black p-2.5 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
@@ -1352,7 +1440,7 @@ export const DailyRecordPage: React.FC = () => {
                       {estRemainingEggStockBreakdown.formatted}
                     </span>
                     <span className="text-[10px] text-zinc-500 block">
-                      {estRemainingEggStockEggs.toLocaleString()} total eggs in stock
+                      {estRemainingEggStockEggs.toLocaleString()} in stock
                     </span>
                   </div>
                   <div className="bg-black text-white border border-black p-2.5 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
@@ -1361,7 +1449,7 @@ export const DailyRecordPage: React.FC = () => {
                       {estProdPercentage}%
                     </span>
                     <span className="text-[10px] text-zinc-400 block">
-                      {estProdEggs.toLocaleString()} eggs / {estRemainingBirds.toLocaleString()} birds
+                      {estProdEggs.toLocaleString()} / {estRemainingBirds.toLocaleString()} birds
                     </span>
                   </div>
                 </div>

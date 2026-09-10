@@ -5,6 +5,7 @@ import { db, isDatabaseConnected, schema } from '../../db/client.js';
 import { mockStore } from '../../db/mock-store.js';
 import { successResponse, errorResponse } from '../../utils/response.js';
 import { flushFlockCache, flushFlocksListCache, getCache, setCache } from '../../db/redis.js';
+import { normalizePetiTrays } from '../../calculations/index.js';
 
 const createFlockSchema = z.object({
   name: z.string().min(1, 'Flock name is required'),
@@ -17,6 +18,8 @@ const createFlockSchema = z.object({
     cumulativeMortality: z.number().int().min(0).default(0),
     totalReceivedFeedBags: z.number().int().min(0).optional().default(0),
     remainingFeedBags: z.number().int().min(0).default(0),
+    totalProducedEggPeti: z.number().int().min(0).optional().default(0),
+    totalProducedEggTrays: z.number().int().min(0).optional().default(0),
     remainingEggPeti: z.number().int().min(0).default(0),
     remainingEggTrays: z.number().int().min(0).default(0),
     remainingDieselLiters: z.number().min(0).default(0),
@@ -147,6 +150,29 @@ export const flockRoutes: FastifyPluginAsync = async (fastify) => {
       );
     }
 
+    if (
+      isRunningFlock &&
+      eggTrackingEnabled &&
+      openingBalances
+    ) {
+      const normProduced = normalizePetiTrays(
+        openingBalances.totalProducedEggPeti || 0,
+        openingBalances.totalProducedEggTrays || 0
+      );
+      const normRemaining = normalizePetiTrays(
+        openingBalances.remainingEggPeti || 0,
+        openingBalances.remainingEggTrays || 0
+      );
+
+      if (normProduced.totalTrays > 0 && normRemaining.totalTrays > normProduced.totalTrays) {
+        reply.status(400);
+        return errorResponse(
+          `Already present remaining egg stock (${normRemaining.formatted}) cannot exceed total produced eggs till date (${normProduced.formatted}).`,
+          'VALIDATION_ERROR'
+        );
+      }
+    }
+
     if (isDatabaseConnected()) {
       try {
         // Fetch or create default farm
@@ -213,17 +239,38 @@ export const flockRoutes: FastifyPluginAsync = async (fastify) => {
               });
             }
 
-            // 3. Remaining eggs in stock
-            if (eggTrackingEnabled && (openingBalances.remainingEggPeti > 0 || openingBalances.remainingEggTrays > 0)) {
-              await tx.insert(schema.eggDailyRecords).values({
-                farmId: farm.id,
-                flockId: newFlock.id,
-                date: baselineDate,
-                productionPeti: openingBalances.remainingEggPeti,
-                productionTrays: openingBalances.remainingEggTrays,
-                soldPeti: 0,
-                soldTrays: 0,
-              });
+            // 3. Remaining eggs & Total Produced Till Date in already running flock
+            if (eggTrackingEnabled) {
+              const normProduced = normalizePetiTrays(
+                openingBalances.totalProducedEggPeti || 0,
+                openingBalances.totalProducedEggTrays || 0
+              );
+              const normRemaining = normalizePetiTrays(
+                openingBalances.remainingEggPeti || 0,
+                openingBalances.remainingEggTrays || 0
+              );
+
+              const finalProducedTrays = Math.max(normProduced.totalTrays, normRemaining.totalTrays);
+              const finalProducedPeti = Math.floor(finalProducedTrays / 12);
+              const finalProducedRemainderTrays = finalProducedTrays % 12;
+
+              const priorSoldTrays = Math.max(0, finalProducedTrays - normRemaining.totalTrays);
+              const priorSoldPeti = Math.floor(priorSoldTrays / 12);
+              const priorSoldRemainderTrays = priorSoldTrays % 12;
+
+              if (finalProducedTrays > 0 || normRemaining.totalTrays > 0) {
+                await tx.insert(schema.eggDailyRecords).values({
+                  farmId: farm.id,
+                  flockId: newFlock.id,
+                  date: baselineDate,
+                  productionPeti: finalProducedPeti,
+                  productionTrays: finalProducedRemainderTrays,
+                  cumulativeProductionPeti: finalProducedPeti,
+                  cumulativeProductionTrays: finalProducedRemainderTrays,
+                  soldPeti: priorSoldPeti,
+                  soldTrays: priorSoldRemainderTrays,
+                });
+              }
             }
 
             // 4. Remaining diesel
@@ -309,19 +356,40 @@ export const flockRoutes: FastifyPluginAsync = async (fastify) => {
           updatedAt: new Date(),
         });
       }
-      if (eggTrackingEnabled && (openingBalances.remainingEggPeti > 0 || openingBalances.remainingEggTrays > 0)) {
-        mockStore.eggRecords.push({
-          id: crypto.randomUUID(),
-          farmId: newFlock.farmId,
-          flockId: newFlock.id,
-          date: baselineDate,
-          productionPeti: openingBalances.remainingEggPeti,
-          productionTrays: openingBalances.remainingEggTrays,
-          soldPeti: 0,
-          soldTrays: 0,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        });
+      if (eggTrackingEnabled) {
+        const normProduced = normalizePetiTrays(
+          openingBalances.totalProducedEggPeti || 0,
+          openingBalances.totalProducedEggTrays || 0
+        );
+        const normRemaining = normalizePetiTrays(
+          openingBalances.remainingEggPeti || 0,
+          openingBalances.remainingEggTrays || 0
+        );
+
+        const finalProducedTrays = Math.max(normProduced.totalTrays, normRemaining.totalTrays);
+        const finalProducedPeti = Math.floor(finalProducedTrays / 12);
+        const finalProducedRemainderTrays = finalProducedTrays % 12;
+
+        const priorSoldTrays = Math.max(0, finalProducedTrays - normRemaining.totalTrays);
+        const priorSoldPeti = Math.floor(priorSoldTrays / 12);
+        const priorSoldRemainderTrays = priorSoldTrays % 12;
+
+        if (finalProducedTrays > 0 || normRemaining.totalTrays > 0) {
+          mockStore.eggRecords.push({
+            id: crypto.randomUUID(),
+            farmId: newFlock.farmId,
+            flockId: newFlock.id,
+            date: baselineDate,
+            productionPeti: finalProducedPeti,
+            productionTrays: finalProducedRemainderTrays,
+            cumulativeProductionPeti: finalProducedPeti,
+            cumulativeProductionTrays: finalProducedRemainderTrays,
+            soldPeti: priorSoldPeti,
+            soldTrays: priorSoldRemainderTrays,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          });
+        }
       }
       if (openingBalances.remainingDieselLiters > 0) {
         mockStore.dieselRecords.push({

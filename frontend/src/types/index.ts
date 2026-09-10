@@ -64,6 +64,9 @@ export interface DashboardData {
     todaySoldTrays?: number;
     todayUsageEggs?: number;
     totalProductionEggs?: number;
+    totalProductionPeti?: number;
+    totalProductionTrays?: number;
+    totalProductionFormatted?: string;
   };
   diesel: {
     totalReceivedLiters: number;
@@ -125,6 +128,10 @@ export interface UnifiedDailyRecord {
   eggs: {
     productionPeti: number;
     productionTrays: number;
+    cumulativeProductionPeti?: number;
+    cumulativeProductionTrays?: number;
+    cumulativeProductionFormatted?: string;
+    cumulativeProductionEggs?: number;
     soldPeti: number;
     soldTrays: number;
   };
@@ -171,6 +178,20 @@ export interface UnifiedDailyRecord {
       peti: number;
       trays: number;
       looseEggs: number;
+      formatted: string;
+    };
+    totalProducedEggsTillDate?: {
+      peti: number;
+      trays: number;
+      totalTrays: number;
+      totalEggs: number;
+      formatted: string;
+    };
+    priorTotalProducedEggs?: {
+      peti: number;
+      trays: number;
+      totalTrays: number;
+      totalEggs: number;
       formatted: string;
     };
     previousDieselStockLiters: number;

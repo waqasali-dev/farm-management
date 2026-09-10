@@ -80,6 +80,8 @@ export const eggDailyRecords = pgTable('egg_daily_records', {
   date: date('date').notNull(),
   productionPeti: integer('production_peti').default(0).notNull(),
   productionTrays: integer('production_trays').default(0).notNull(),
+  cumulativeProductionPeti: integer('cumulative_production_peti').default(0).notNull(),
+  cumulativeProductionTrays: integer('cumulative_production_trays').default(0).notNull(),
   soldPeti: integer('sold_peti').default(0).notNull(),
   soldTrays: integer('sold_trays').default(0).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),

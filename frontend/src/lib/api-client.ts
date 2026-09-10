@@ -59,6 +59,8 @@ export const api = {
       cumulativeMortality?: number;
       totalReceivedFeedBags?: number;
       remainingFeedBags?: number;
+      totalProducedEggPeti?: number;
+      totalProducedEggTrays?: number;
       remainingEggPeti?: number;
       remainingEggTrays?: number;
       remainingDieselLiters?: number;

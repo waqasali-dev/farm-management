@@ -7,6 +7,8 @@ import {
   calculateFeedConsumptionGramsPerBird,
   petiTraysToEggs,
   eggsToPetiTrays,
+  normalizePetiTrays,
+  sumPetiTrays,
   calculateProductionPercentage,
   calculateRemainingDieselLiters,
   calculateBirdAge,
@@ -96,6 +98,43 @@ describe('Calculation Engine (Section 53)', () => {
 
     it('prevents negative egg stock', () => {
       expect(() => eggsToPetiTrays(-50)).toThrow();
+    });
+
+    it('normalizes peti and trays strictly ensuring trays < 12 (12 trays = 1 peti rule)', () => {
+      // 0 peti, 12 trays => 1 peti, 0 trays
+      const res12 = normalizePetiTrays(0, 12);
+      expect(res12.peti).toBe(1);
+      expect(res12.trays).toBe(0);
+      expect(res12.totalTrays).toBe(12);
+      expect(res12.totalEggs).toBe(360);
+      expect(res12.formatted).toBe('1 Peti, 0 Trays');
+
+      // 5 peti, 25 trays => (5*12 + 25) = 85 trays => 7 peti, 1 tray
+      const res25 = normalizePetiTrays(5, 25);
+      expect(res25.peti).toBe(7);
+      expect(res25.trays).toBe(1);
+      expect(res25.totalTrays).toBe(85);
+      expect(res25.totalEggs).toBe(2550);
+      expect(res25.formatted).toBe('7 Peti, 1 Trays');
+
+      // Boundary: 11 trays remains 11 trays
+      const res11 = normalizePetiTrays(2, 11);
+      expect(res11.peti).toBe(2);
+      expect(res11.trays).toBe(11);
+      expect(res11.formatted).toBe('2 Peti, 11 Trays');
+    });
+
+    it('sums series of petis and trays via tray conversion and returns canonical form', () => {
+      // 1 peti 8 trays + 2 peti 9 trays = 1*12+8 (20) + 2*12+9 (33) = 53 trays = 4 peti 5 trays
+      const sumRes = sumPetiTrays([
+        { peti: 1, trays: 8 },
+        { peti: 2, trays: 9 },
+      ]);
+      expect(sumRes.peti).toBe(4);
+      expect(sumRes.trays).toBe(5);
+      expect(sumRes.totalTrays).toBe(53);
+      expect(sumRes.totalEggs).toBe(1590);
+      expect(sumRes.formatted).toBe('4 Peti, 5 Trays');
     });
   });
 

@@ -9,6 +9,7 @@ import {
   calculateFeedConsumptionGramsPerBird,
   petiTraysToEggs,
   eggsToPetiTrays,
+  normalizePetiTrays,
   calculateProductionPercentage,
   calculateBirdAge,
   calculateWaterPerBirdMl,
@@ -78,14 +79,18 @@ export const dashboardRoutes: FastifyPluginAsync = async (fastify) => {
             .from(schema.eggUsageRecords)
             .where(and(eq(schema.eggUsageRecords.flockId, flockId), lte(schema.eggUsageRecords.date, todayDate)));
 
+          let totalProductionTrays = 0;
           let totalProductionEggs = 0;
           let totalSoldEggs = 0;
           let totalUsageEggs = 0;
 
           for (const r of eggHistory) {
+            totalProductionTrays += (r.productionPeti || 0) * 12 + (r.productionTrays || 0);
             totalProductionEggs += petiTraysToEggs(r.productionPeti, r.productionTrays);
             totalSoldEggs += petiTraysToEggs(r.soldPeti, r.soldTrays);
           }
+
+          const totalProdBreakdown = normalizePetiTrays(Math.floor(totalProductionTrays / 12), totalProductionTrays % 12);
 
           for (const u of eggUsageHistory) {
             totalUsageEggs += petiTraysToEggs(u.peti, u.trays);
@@ -118,6 +123,9 @@ export const dashboardRoutes: FastifyPluginAsync = async (fastify) => {
             todaySoldTrays: todayEggRecord ? todayEggRecord.soldTrays : 0,
             todayUsageEggs,
             totalProductionEggs,
+            totalProductionPeti: totalProdBreakdown.peti,
+            totalProductionTrays: totalProdBreakdown.trays,
+            totalProductionFormatted: totalProdBreakdown.formatted,
           };
         } else {
           eggMetrics = { enabled: false };

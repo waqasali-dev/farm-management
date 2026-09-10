@@ -57,6 +57,7 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
           .where(eq(schema.dieselDailyRecords.flockId, flockId));
 
         let cumulativeMortality = 0;
+        let cumulativeEggProductionTrays = 0;
         const dailySummaryRows = birdRecords.map((b) => {
           cumulativeMortality += b.mortality;
           const remainingBirds = calculateRemainingBirds(flock.initialBirds, cumulativeMortality);
@@ -69,6 +70,12 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
 
           const eggEggs = egg ? petiTraysToEggs(egg.productionPeti, egg.productionTrays) : 0;
           const eggPct = flock.eggTrackingEnabled ? calculateProductionPercentage(eggEggs, remainingBirds) : 0;
+
+          if (egg) {
+            cumulativeEggProductionTrays += (egg.productionPeti || 0) * 12 + (egg.productionTrays || 0);
+          }
+          const cumEggPeti = Math.floor(cumulativeEggProductionTrays / 12);
+          const cumEggTrays = cumulativeEggProductionTrays % 12;
 
           return {
             date: b.date,
@@ -83,6 +90,10 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
             feedConsumptionGrams: feed ? calculateFeedConsumptionGramsPerBird(feed.usedBags, remainingBirds) : 0,
             eggProductionEggs: eggEggs,
             eggProductionPct: eggPct,
+            cumulativeEggProductionPeti: cumEggPeti,
+            cumulativeEggProductionTrays: cumEggTrays,
+            cumulativeEggProductionFormatted: `${cumEggPeti}P, ${cumEggTrays}T`,
+            cumulativeEggProductionEggs: cumulativeEggProductionTrays * 30,
             dieselUsedLiters: diesel ? parseFloat(diesel.usedLiters) : 0,
             manureRemoved: Boolean(b.manureRemoved),
           };
@@ -117,6 +128,7 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
       .sort((a, b) => a.date.localeCompare(b.date));
 
     let cumulativeMortality = 0;
+    let cumulativeEggProductionTrays = 0;
     const dailySummaryRows = birdRecords.map((b) => {
       cumulativeMortality += b.mortality;
       const remainingBirds = calculateRemainingBirds(flock.initialBirds, cumulativeMortality);
@@ -130,6 +142,12 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
       const eggEggs = egg ? petiTraysToEggs(egg.productionPeti, egg.productionTrays) : 0;
       const eggPct = flock.eggTrackingEnabled ? calculateProductionPercentage(eggEggs, remainingBirds) : 0;
 
+      if (egg) {
+        cumulativeEggProductionTrays += (egg.productionPeti || 0) * 12 + (egg.productionTrays || 0);
+      }
+      const cumEggPeti = Math.floor(cumulativeEggProductionTrays / 12);
+      const cumEggTrays = cumulativeEggProductionTrays % 12;
+
       return {
         date: b.date,
         age: age.formatted,
@@ -141,6 +159,10 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
         feedConsumptionGrams: feed ? calculateFeedConsumptionGramsPerBird(feed.usedBags, remainingBirds) : 0,
         eggProductionEggs: eggEggs,
         eggProductionPct: eggPct,
+        cumulativeEggProductionPeti: cumEggPeti,
+        cumulativeEggProductionTrays: cumEggTrays,
+        cumulativeEggProductionFormatted: `${cumEggPeti}P, ${cumEggTrays}T`,
+        cumulativeEggProductionEggs: cumulativeEggProductionTrays * 30,
         dieselUsedLiters: diesel ? diesel.usedLiters : 0,
       };
     });
@@ -465,12 +487,19 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
           .where(eq(schema.eggUsageRecords.flockId, flockId));
 
         let cumulativeEggs = 0;
+        let cumulativeProductionTrays = 0;
         const rows = records.map((r) => {
           const openingStockEggs = Math.max(0, cumulativeEggs);
           const openingStockFormatted = eggsToPetiTrays(openingStockEggs).formatted;
 
           const prodEggs = petiTraysToEggs(r.productionPeti, r.productionTrays);
           const soldEggs = petiTraysToEggs(r.soldPeti, r.soldTrays);
+
+          const dayProdTrays = (r.productionPeti || 0) * 12 + (r.productionTrays || 0);
+          cumulativeProductionTrays += dayProdTrays;
+          const cumProdPeti = Math.floor(cumulativeProductionTrays / 12);
+          const cumProdTrays = cumulativeProductionTrays % 12;
+          const cumProdEggs = cumulativeProductionTrays * 30;
 
           const dateUsages = usageRecords.filter((u) => u.date === r.date);
           const usageForDate = dateUsages.reduce((sum, u) => sum + petiTraysToEggs(u.peti, u.trays), 0);
@@ -491,6 +520,10 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
             productionPeti: r.productionPeti,
             productionTrays: r.productionTrays,
             productionEggs: prodEggs,
+            cumulativeProductionPeti: cumProdPeti,
+            cumulativeProductionTrays: cumProdTrays,
+            cumulativeProductionFormatted: `${cumProdPeti}P, ${cumProdTrays}T`,
+            cumulativeProductionEggs: cumProdEggs,
             soldPeti: r.soldPeti,
             soldTrays: r.soldTrays,
             soldEggs,
@@ -522,12 +555,20 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
       .sort((a, b) => a.date.localeCompare(b.date));
 
     let cumulativeEggs = 0;
+    let cumulativeProductionTrays = 0;
     const rows = records.map((r) => {
       const openingStockEggs = Math.max(0, cumulativeEggs);
       const openingStockFormatted = eggsToPetiTrays(openingStockEggs).formatted;
 
       const prodEggs = petiTraysToEggs(r.productionPeti, r.productionTrays);
       const soldEggs = petiTraysToEggs(r.soldPeti, r.soldTrays);
+
+      const dayProdTrays = (r.productionPeti || 0) * 12 + (r.productionTrays || 0);
+      cumulativeProductionTrays += dayProdTrays;
+      const cumProdPeti = Math.floor(cumulativeProductionTrays / 12);
+      const cumProdTrays = cumulativeProductionTrays % 12;
+      const cumProdEggs = cumulativeProductionTrays * 30;
+
       const dateUsages = mockStore.eggUsageRecords.filter((u) => u.flockId === flockId && u.date === r.date);
       const usageForDate = dateUsages.reduce((sum, u) => sum + petiTraysToEggs(u.peti, u.trays), 0);
 
@@ -547,6 +588,10 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
         productionPeti: r.productionPeti,
         productionTrays: r.productionTrays,
         productionEggs: prodEggs,
+        cumulativeProductionPeti: cumProdPeti,
+        cumulativeProductionTrays: cumProdTrays,
+        cumulativeProductionFormatted: `${cumProdPeti}P, ${cumProdTrays}T`,
+        cumulativeProductionEggs: cumProdEggs,
         soldPeti: r.soldPeti,
         soldTrays: r.soldTrays,
         soldEggs,

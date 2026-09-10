@@ -6,6 +6,8 @@ import {
   calculateBirdAge,
   petiTraysToEggs,
   eggsToPetiTrays,
+  sumPetiTrays,
+  normalizePetiTrays,
   calculateProductionPercentage,
   calculateFeedPerBirdGrams,
   calculateWaterPerBirdMl,
@@ -114,6 +116,24 @@ export const DailyAuditPdfModal: React.FC<DailyAuditPdfModalProps> = ({
   );
   const closingEggTotal = Math.max(0, prevEggTotal + prodTotalEggs - soldTotalEggs - usageEggsTotal);
   const closingEggBreakdown = eggsToPetiTrays(closingEggTotal);
+
+  // Cumulative egg production till date
+  const cumulativeEggFormatted = record?.eggs?.cumulativeProductionFormatted ?? (
+    record?.priorBalances?.totalProducedEggsTillDate?.formatted ?? (
+      sumPetiTrays([
+        { peti: record?.priorBalances?.priorTotalProducedEggs?.peti ?? 0, trays: record?.priorBalances?.priorTotalProducedEggs?.trays ?? 0 },
+        { peti: prodPeti, trays: prodTrays },
+      ]).formatted
+    )
+  );
+  const cumulativeEggEggs = record?.eggs?.cumulativeProductionEggs ?? (
+    record?.priorBalances?.totalProducedEggsTillDate?.totalEggs ?? (
+      sumPetiTrays([
+        { peti: record?.priorBalances?.priorTotalProducedEggs?.peti ?? 0, trays: record?.priorBalances?.priorTotalProducedEggs?.trays ?? 0 },
+        { peti: prodPeti, trays: prodTrays },
+      ]).totalEggs
+    )
+  );
 
   // Diesel math
   const prevDiesel = record?.priorBalances?.previousDieselStockLiters ?? 0;
@@ -301,9 +321,10 @@ export const DailyAuditPdfModal: React.FC<DailyAuditPdfModalProps> = ({
                     <span>5. Egg Production, Sales & Internal Usage</span>
                     <span className="text-black font-bold">Laying: {eggProdPct}%</span>
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-black text-[11px]">
+                  <div className="grid grid-cols-2 sm:grid-cols-5 divide-y sm:divide-y-0 sm:divide-x divide-black text-[11px]">
                     <div className="p-2"><span className="text-zinc-500 block text-[10px]">CARRIED STOCK</span><strong>{prevEggs.formatted}</strong></div>
                     <div className="p-2"><span className="text-zinc-500 block text-[10px]">PRODUCTION TODAY</span><strong>{prodPeti}p {prodTrays}t ({prodTotalEggs.toLocaleString()} eggs)</strong></div>
+                    <div className="p-2 bg-zinc-50"><span className="text-zinc-500 block text-[10px]">TOTAL PRODUCED TILL NOW</span><strong className="text-black">{cumulativeEggFormatted}</strong><span className="text-[10px] text-zinc-500 block">({cumulativeEggEggs.toLocaleString()} eggs)</span></div>
                     <div className="p-2"><span className="text-zinc-500 block text-[10px]">SOLD / DISPATCHED</span><strong>{soldPeti}p {soldTrays}t ({soldTotalEggs.toLocaleString()} eggs)</strong></div>
                     <div className="p-2 bg-zinc-100"><span className="text-zinc-500 block text-[10px]">CLOSING STOCK</span><strong className="text-black">{closingEggBreakdown.formatted}</strong></div>
                   </div>

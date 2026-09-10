@@ -4,6 +4,8 @@ import { Flock, UnifiedDailyRecord } from '../types/index.js';
 import {
   petiTraysToEggs,
   eggsToPetiTrays,
+  sumPetiTrays,
+  normalizePetiTrays,
   calculateProductionPercentage,
   calculateFeedPerBirdGrams,
   calculateWaterPerBirdMl,
@@ -86,6 +88,23 @@ export function createDailyAuditPdf(
   );
   const closingEggTotal = Math.max(0, prevEggTotal + prodTotalEggs - soldTotalEggs - usageEggsTotal);
   const closingEggBreakdown = eggsToPetiTrays(closingEggTotal);
+
+  const cumulativeEggFormatted = record.eggs?.cumulativeProductionFormatted ?? (
+    record.priorBalances?.totalProducedEggsTillDate?.formatted ?? (
+      sumPetiTrays([
+        { peti: record.priorBalances?.priorTotalProducedEggs?.peti ?? 0, trays: record.priorBalances?.priorTotalProducedEggs?.trays ?? 0 },
+        { peti: prodPeti, trays: prodTrays },
+      ]).formatted
+    )
+  );
+  const cumulativeEggEggs = record.eggs?.cumulativeProductionEggs ?? (
+    record.priorBalances?.totalProducedEggsTillDate?.totalEggs ?? (
+      sumPetiTrays([
+        { peti: record.priorBalances?.priorTotalProducedEggs?.peti ?? 0, trays: record.priorBalances?.priorTotalProducedEggs?.trays ?? 0 },
+        { peti: prodPeti, trays: prodTrays },
+      ]).totalEggs
+    )
+  );
 
   // Diesel math
   const prevDiesel = record.priorBalances?.previousDieselStockLiters ?? 0;
@@ -276,14 +295,14 @@ export function createDailyAuditPdf(
           `${prevEggs.formatted} (${prevEggTotal.toLocaleString()} eggs)`,
           'Today\'s Production',
           `${prodPeti} Peti, ${prodTrays} Trays (${prodTotalEggs.toLocaleString()} eggs)`,
-          'Production Laying %',
-          `${eggProdPct}%`,
+          'Total Produced Till Now',
+          `${cumulativeEggFormatted} (${cumulativeEggEggs.toLocaleString()} eggs)`,
         ],
         [
           'Eggs Sold / Dispatched',
           `${soldPeti} Peti, ${soldTrays} Trays (${soldTotalEggs.toLocaleString()} eggs)`,
-          'Internal Usage & Waste',
-          `${usageDetails} (Total: ${usageEggsTotal.toLocaleString()} eggs)`,
+          'Production Laying %',
+          `${eggProdPct}% (Internal Usage: ${usageEggsTotal.toLocaleString()} eggs)`,
           { content: 'Closing Egg Stock', styles: { fontStyle: 'bold' } },
           { content: `${closingEggBreakdown.formatted} (${closingEggTotal.toLocaleString()} eggs)`, styles: { fontStyle: 'bold' } },
         ],

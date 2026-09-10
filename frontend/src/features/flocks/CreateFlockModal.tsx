@@ -1,7 +1,12 @@
 import React, { useState, useMemo } from 'react';
 import { useCreateFlockMutation } from '../../lib/queries.js';
 import { Flock } from '../../types/index.js';
-import { calculateBirdAge, calculateRemainingBirds, calculateStartDateFromAge } from '../../lib/calculations.js';
+import {
+  calculateBirdAge,
+  calculateRemainingBirds,
+  calculateStartDateFromAge,
+  normalizePetiTrays,
+} from '../../lib/calculations.js';
 import { X, Layers, AlertCircle, Calculator } from 'lucide-react';
 
 interface CreateFlockModalProps {
@@ -36,6 +41,8 @@ export const CreateFlockModal: React.FC<CreateFlockModalProps> = ({
   const [cumulativeMortality, setCumulativeMortality] = useState<number | ''>(0);
   const [totalReceivedFeedBags, setTotalReceivedFeedBags] = useState<number | ''>(0);
   const [remainingFeedBags, setRemainingFeedBags] = useState<number | ''>(0);
+  const [totalProducedEggPeti, setTotalProducedEggPeti] = useState<number | ''>(0);
+  const [totalProducedEggTrays, setTotalProducedEggTrays] = useState<number | ''>(0);
   const [remainingEggPeti, setRemainingEggPeti] = useState<number | ''>(0);
   const [remainingEggTrays, setRemainingEggTrays] = useState<number | ''>(0);
   const [remainingDieselLiters, setRemainingDieselLiters] = useState<number | ''>(0);
@@ -79,12 +86,49 @@ export const CreateFlockModal: React.FC<CreateFlockModalProps> = ({
     return calculateRemainingBirds(init, mort);
   }, [initialBirds, cumulativeMortality]);
 
-  // Total opening eggs
-  const totalOpeningEggs = useMemo(() => {
-    const peti = Number(remainingEggPeti) || 0;
-    const trays = Number(remainingEggTrays) || 0;
-    return peti * 360 + trays * 30;
+  // Real-time normalized egg values (canonical 12 trays = 1 peti rule)
+  const normalizedProducedEggs = useMemo(() => {
+    return normalizePetiTrays(Number(totalProducedEggPeti) || 0, Number(totalProducedEggTrays) || 0);
+  }, [totalProducedEggPeti, totalProducedEggTrays]);
+
+  const normalizedRemainingEggs = useMemo(() => {
+    return normalizePetiTrays(Number(remainingEggPeti) || 0, Number(remainingEggTrays) || 0);
   }, [remainingEggPeti, remainingEggTrays]);
+
+  // Input handlers with auto-normalization for trays >= 12
+  const handleProducedTraysChange = (valStr: string) => {
+    if (valStr === '') {
+      setTotalProducedEggTrays('');
+      return;
+    }
+    const val = parseInt(valStr, 10);
+    if (isNaN(val)) return;
+    if (val >= 12) {
+      const curPeti = Number(totalProducedEggPeti) || 0;
+      const norm = normalizePetiTrays(curPeti, val);
+      setTotalProducedEggPeti(norm.peti);
+      setTotalProducedEggTrays(norm.trays);
+    } else {
+      setTotalProducedEggTrays(Math.max(0, val));
+    }
+  };
+
+  const handleRemainingTraysChange = (valStr: string) => {
+    if (valStr === '') {
+      setRemainingEggTrays('');
+      return;
+    }
+    const val = parseInt(valStr, 10);
+    if (isNaN(val)) return;
+    if (val >= 12) {
+      const curPeti = Number(remainingEggPeti) || 0;
+      const norm = normalizePetiTrays(curPeti, val);
+      setRemainingEggPeti(norm.peti);
+      setRemainingEggTrays(norm.trays);
+    } else {
+      setRemainingEggTrays(Math.max(0, val));
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -146,9 +190,19 @@ export const CreateFlockModal: React.FC<CreateFlockModalProps> = ({
         setError('Remaining diesel cannot be negative');
         return;
       }
-      if (Number(remainingEggPeti) < 0 || Number(remainingEggTrays) < 0) {
-        setError('Egg stock counts cannot be negative');
-        return;
+      if (eggTrackingEnabled) {
+        if (Number(totalProducedEggPeti) < 0 || Number(totalProducedEggTrays) < 0) {
+          setError('Total produced eggs cannot be negative');
+          return;
+        }
+        if (Number(remainingEggPeti) < 0 || Number(remainingEggTrays) < 0) {
+          setError('Egg stock counts cannot be negative');
+          return;
+        }
+        if (normalizedRemainingEggs.totalTrays > normalizedProducedEggs.totalTrays && normalizedProducedEggs.totalTrays > 0) {
+          setError(`Remaining egg stock (${normalizedRemainingEggs.formatted}) cannot exceed total produced eggs till date (${normalizedProducedEggs.formatted})`);
+          return;
+        }
       }
     }
 
@@ -164,8 +218,10 @@ export const CreateFlockModal: React.FC<CreateFlockModalProps> = ({
           cumulativeMortality: Number(cumulativeMortality) || 0,
           totalReceivedFeedBags: Number(totalReceivedFeedBags) || 0,
           remainingFeedBags: Number(remainingFeedBags) || 0,
-          remainingEggPeti: eggTrackingEnabled ? (Number(remainingEggPeti) || 0) : 0,
-          remainingEggTrays: eggTrackingEnabled ? (Number(remainingEggTrays) || 0) : 0,
+          totalProducedEggPeti: eggTrackingEnabled ? normalizedProducedEggs.peti : 0,
+          totalProducedEggTrays: eggTrackingEnabled ? normalizedProducedEggs.trays : 0,
+          remainingEggPeti: eggTrackingEnabled ? normalizedRemainingEggs.peti : 0,
+          remainingEggTrays: eggTrackingEnabled ? normalizedRemainingEggs.trays : 0,
           remainingDieselLiters: Number(remainingDieselLiters) || 0,
           asOfDate: asOfDate || yesterdayStr,
         } : undefined,
@@ -182,6 +238,8 @@ export const CreateFlockModal: React.FC<CreateFlockModalProps> = ({
       setCumulativeMortality(0);
       setTotalReceivedFeedBags(0);
       setRemainingFeedBags(0);
+      setTotalProducedEggPeti(0);
+      setTotalProducedEggTrays(0);
       setRemainingEggPeti(0);
       setRemainingEggTrays(0);
       setRemainingDieselLiters(0);
@@ -606,41 +664,133 @@ export const CreateFlockModal: React.FC<CreateFlockModalProps> = ({
                 )}
               </div>
 
-              {/* Egg Stock (if enabled) */}
+              {/* Egg Stock & Cumulative Production (if enabled) */}
               {eggTrackingEnabled && (
-                <div className="border border-zinc-300 p-3 bg-white space-y-2">
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-black">
-                    Remaining Egg Production in Storage (Petis & Trays)
-                  </label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <span className="text-[10px] font-mono text-zinc-500 uppercase block">Petis (360 eggs each)</span>
-                      <input
-                        type="number"
-                        min="0"
-                        step="1"
-                        value={remainingEggPeti}
-                        onChange={(e) => setRemainingEggPeti(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
-                        className="w-full border border-black px-3 py-2 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-black"
-                        placeholder="0"
-                      />
+                <div className="border border-zinc-300 p-3 bg-white space-y-3">
+                  <div className="border-b border-zinc-200 pb-1.5">
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-black">
+                      Egg Production Till Date & Remaining Stock
+                    </label>
+                    <p className="text-[10px] font-mono text-zinc-500">
+                      12 Trays = 1 Peti (360 eggs) • Trays can never exceed 11 (values ≥ 12 auto-convert to Petis).
+                    </p>
+                  </div>
+
+                  {/* 1. Total Produced Eggs Till Date */}
+                  <div className="space-y-1.5 bg-zinc-50 p-2.5 border border-zinc-200">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-mono font-bold uppercase text-black">
+                        1. Total Produced Eggs Till Date *
+                      </span>
+                      <span className="text-[10px] font-mono font-semibold bg-black text-white px-2 py-0.5">
+                        {normalizedProducedEggs.formatted} ({normalizedProducedEggs.totalEggs.toLocaleString()} eggs)
+                      </span>
                     </div>
-                    <div>
-                      <span className="text-[10px] font-mono text-zinc-500 uppercase block">Trays (30 eggs each)</span>
-                      <input
-                        type="number"
-                        min="0"
-                        step="1"
-                        value={remainingEggTrays}
-                        onChange={(e) => setRemainingEggTrays(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
-                        className="w-full border border-black px-3 py-2 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-black"
-                        placeholder="0"
-                      />
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <span className="text-[10px] font-mono text-zinc-500 uppercase block">Petis (360 eggs each)</span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={totalProducedEggPeti}
+                          onChange={(e) => setTotalProducedEggPeti(e.target.value === '' ? '' : Math.max(0, parseInt(e.target.value, 10)))}
+                          onBlur={() => {
+                            const norm = normalizePetiTrays(Number(totalProducedEggPeti) || 0, Number(totalProducedEggTrays) || 0);
+                            setTotalProducedEggPeti(norm.peti);
+                            setTotalProducedEggTrays(norm.trays);
+                          }}
+                          className="w-full border border-black px-3 py-2 text-xs font-mono bg-white focus:outline-none focus:ring-2 focus:ring-black"
+                          placeholder="0"
+                        />
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-mono text-zinc-500 uppercase block">Trays (0 - 11)</span>
+                        <input
+                          type="number"
+                          min="0"
+                          max="11"
+                          step="1"
+                          value={totalProducedEggTrays}
+                          onChange={(e) => handleProducedTraysChange(e.target.value)}
+                          onBlur={() => {
+                            const norm = normalizePetiTrays(Number(totalProducedEggPeti) || 0, Number(totalProducedEggTrays) || 0);
+                            setTotalProducedEggPeti(norm.peti);
+                            setTotalProducedEggTrays(norm.trays);
+                          }}
+                          className="w-full border border-black px-3 py-2 text-xs font-mono bg-white focus:outline-none focus:ring-2 focus:ring-black"
+                          placeholder="0"
+                        />
+                      </div>
                     </div>
                   </div>
-                  <div className="text-[11px] font-mono text-zinc-700 pt-1">
-                    Total Starting Egg Stock: <span className="font-bold">{totalOpeningEggs.toLocaleString()}</span> eggs
+
+                  {/* 2. Remaining Eggs in Storage */}
+                  <div className="space-y-1.5 bg-zinc-50 p-2.5 border border-zinc-200">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-mono font-bold uppercase text-black">
+                        2. Already Present Remaining Egg Stock *
+                      </span>
+                      <span className="text-[10px] font-mono font-semibold bg-zinc-200 text-black border border-black px-2 py-0.5">
+                        {normalizedRemainingEggs.formatted} ({normalizedRemainingEggs.totalEggs.toLocaleString()} eggs)
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <span className="text-[10px] font-mono text-zinc-500 uppercase block">Petis (360 eggs each)</span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={remainingEggPeti}
+                          onChange={(e) => setRemainingEggPeti(e.target.value === '' ? '' : Math.max(0, parseInt(e.target.value, 10)))}
+                          onBlur={() => {
+                            const norm = normalizePetiTrays(Number(remainingEggPeti) || 0, Number(remainingEggTrays) || 0);
+                            setRemainingEggPeti(norm.peti);
+                            setRemainingEggTrays(norm.trays);
+                          }}
+                          className="w-full border border-black px-3 py-2 text-xs font-mono bg-white focus:outline-none focus:ring-2 focus:ring-black"
+                          placeholder="0"
+                        />
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-mono text-zinc-500 uppercase block">Trays (0 - 11)</span>
+                        <input
+                          type="number"
+                          min="0"
+                          max="11"
+                          step="1"
+                          value={remainingEggTrays}
+                          onChange={(e) => handleRemainingTraysChange(e.target.value)}
+                          onBlur={() => {
+                            const norm = normalizePetiTrays(Number(remainingEggPeti) || 0, Number(remainingEggTrays) || 0);
+                            setRemainingEggPeti(norm.peti);
+                            setRemainingEggTrays(norm.trays);
+                          }}
+                          className="w-full border border-black px-3 py-2 text-xs font-mono bg-white focus:outline-none focus:ring-2 focus:ring-black"
+                          placeholder="0"
+                        />
+                      </div>
+                    </div>
                   </div>
+
+                  {/* Live Computed Egg Insights */}
+                  {(normalizedProducedEggs.totalEggs > 0 || normalizedRemainingEggs.totalEggs > 0) && (
+                    <div className="p-2.5 bg-black text-white border border-black text-[11px] font-mono space-y-1">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                        <span className="text-zinc-300">Total Produced Till Date:</span>
+                        <span className="font-bold text-white">
+                          {normalizedProducedEggs.formatted} ({normalizedProducedEggs.totalEggs.toLocaleString()} eggs)
+                        </span>
+                      </div>
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 border-t border-zinc-700 pt-1">
+                        <span className="text-zinc-300">Computed Prior Sales / Dispatches:</span>
+                        <span className="font-bold text-emerald-400">
+                          {Math.max(0, normalizedProducedEggs.totalEggs - normalizedRemainingEggs.totalEggs).toLocaleString()} eggs sold/dispatched
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 

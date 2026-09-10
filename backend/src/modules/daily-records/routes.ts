@@ -8,6 +8,7 @@ import { flushFlockCache, getCache, setCache } from '../../db/redis.js';
 import {
   petiTraysToEggs,
   eggsToPetiTrays,
+  normalizePetiTrays,
   calculateBirdAge,
 } from '../../calculations/index.js';
 
@@ -207,8 +208,11 @@ async function computeDailyRecordPayload(flockId: string, date: string): Promise
           priorTrays.reduce((sum, r) => sum + r.cardboardWasted, 0)
       );
 
-      // Egg prior balances
-      let previousEggStock = { peti: 0, trays: 0 };
+      // Egg prior balances & Cumulative production till date
+      let previousEggStock = { peti: 0, trays: 0, looseEggs: 0, formatted: '0 Peti, 0 Trays' };
+      let priorTotalProdTrays = 0;
+      let todayCumulativeProduction = { peti: 0, trays: 0, totalTrays: 0, totalEggs: 0, formatted: '0 Peti, 0 Trays' };
+
       if (flock.eggTrackingEnabled) {
         const priorEggRecords = await db
           .select()
@@ -220,12 +224,11 @@ async function computeDailyRecordPayload(flockId: string, date: string): Promise
           .from(schema.eggUsageRecords)
           .where(and(eq(schema.eggUsageRecords.flockId, flockId), lt(schema.eggUsageRecords.date, date)));
 
-        let priorTotalProdEggs = 0;
         let priorTotalSoldEggs = 0;
         let priorTotalUsageEggs = 0;
 
         for (const r of priorEggRecords) {
-          priorTotalProdEggs += petiTraysToEggs(r.productionPeti, r.productionTrays);
+          priorTotalProdTrays += (r.productionPeti || 0) * 12 + (r.productionTrays || 0);
           priorTotalSoldEggs += petiTraysToEggs(r.soldPeti, r.soldTrays);
         }
 
@@ -233,8 +236,13 @@ async function computeDailyRecordPayload(flockId: string, date: string): Promise
           priorTotalUsageEggs += petiTraysToEggs(u.peti, u.trays);
         }
 
+        const priorTotalProdEggs = priorTotalProdTrays * 30;
         const priorRemainingEggs = Math.max(0, priorTotalProdEggs - priorTotalSoldEggs - priorTotalUsageEggs);
         previousEggStock = eggsToPetiTrays(priorRemainingEggs);
+
+        const todayProdTrays = (eggs?.productionPeti || 0) * 12 + (eggs?.productionTrays || 0);
+        const allTraysTillDate = priorTotalProdTrays + todayProdTrays;
+        todayCumulativeProduction = normalizePetiTrays(Math.floor(allTraysTillDate / 12), allTraysTillDate % 12);
       }
 
       // Diesel prior balance
@@ -297,9 +305,22 @@ async function computeDailyRecordPayload(flockId: string, date: string): Promise
         eggs: eggs ? {
           productionPeti: eggs.productionPeti,
           productionTrays: eggs.productionTrays,
+          cumulativeProductionPeti: eggs.cumulativeProductionPeti ?? todayCumulativeProduction.peti,
+          cumulativeProductionTrays: eggs.cumulativeProductionTrays ?? todayCumulativeProduction.trays,
+          cumulativeProductionFormatted: todayCumulativeProduction.formatted,
+          cumulativeProductionEggs: todayCumulativeProduction.totalEggs,
           soldPeti: eggs.soldPeti,
           soldTrays: eggs.soldTrays,
-        } : { productionPeti: 0, productionTrays: 0, soldPeti: 0, soldTrays: 0 },
+        } : {
+          productionPeti: 0,
+          productionTrays: 0,
+          cumulativeProductionPeti: todayCumulativeProduction.peti,
+          cumulativeProductionTrays: todayCumulativeProduction.trays,
+          cumulativeProductionFormatted: todayCumulativeProduction.formatted,
+          cumulativeProductionEggs: todayCumulativeProduction.totalEggs,
+          soldPeti: 0,
+          soldTrays: 0,
+        },
         eggUsage: eggUsage.map((u) => ({
           id: u.id,
           type: u.type,
@@ -336,6 +357,8 @@ async function computeDailyRecordPayload(flockId: string, date: string): Promise
           totalCardboardReceivedTrays,
           totalCardboardWastedTrays,
           previousEggStock,
+          totalProducedEggsTillDate: todayCumulativeProduction,
+          priorTotalProducedEggs: normalizePetiTrays(Math.floor(priorTotalProdTrays / 12), priorTotalProdTrays % 12),
           previousDieselStockLiters,
           birdAge,
         },
@@ -743,6 +766,23 @@ export const dailyRecordRoutes: FastifyPluginAsync = async (fastify) => {
 
           // 3. Eggs (if enabled)
           if (flock.eggTrackingEnabled && data.eggs) {
+            const normToday = normalizePetiTrays(data.eggs.productionPeti, data.eggs.productionTrays);
+            const normSold = normalizePetiTrays(data.eggs.soldPeti, data.eggs.soldTrays);
+
+            // Prior egg records < date to compute cumulative production up to today
+            const priorEggs = await tx
+              .select()
+              .from(schema.eggDailyRecords)
+              .where(and(eq(schema.eggDailyRecords.flockId, flockId), lt(schema.eggDailyRecords.date, date)));
+
+            let priorTraysSum = 0;
+            for (const pe of priorEggs) {
+              priorTraysSum += (pe.productionPeti || 0) * 12 + (pe.productionTrays || 0);
+            }
+            const todayCumTrays = priorTraysSum + normToday.totalTrays;
+            const todayCumPeti = Math.floor(todayCumTrays / 12);
+            const todayCumRemainderTrays = todayCumTrays % 12;
+
             const [existing] = await tx
               .select()
               .from(schema.eggDailyRecords)
@@ -752,10 +792,12 @@ export const dailyRecordRoutes: FastifyPluginAsync = async (fastify) => {
               await tx
                 .update(schema.eggDailyRecords)
                 .set({
-                  productionPeti: data.eggs.productionPeti,
-                  productionTrays: data.eggs.productionTrays,
-                  soldPeti: data.eggs.soldPeti,
-                  soldTrays: data.eggs.soldTrays,
+                  productionPeti: normToday.peti,
+                  productionTrays: normToday.trays,
+                  cumulativeProductionPeti: todayCumPeti,
+                  cumulativeProductionTrays: todayCumRemainderTrays,
+                  soldPeti: normSold.peti,
+                  soldTrays: normSold.trays,
                   updatedAt: new Date(),
                 })
                 .where(eq(schema.eggDailyRecords.id, existing.id));
@@ -764,11 +806,35 @@ export const dailyRecordRoutes: FastifyPluginAsync = async (fastify) => {
                 farmId,
                 flockId,
                 date,
-                productionPeti: data.eggs.productionPeti,
-                productionTrays: data.eggs.productionTrays,
-                soldPeti: data.eggs.soldPeti,
-                soldTrays: data.eggs.soldTrays,
+                productionPeti: normToday.peti,
+                productionTrays: normToday.trays,
+                cumulativeProductionPeti: todayCumPeti,
+                cumulativeProductionTrays: todayCumRemainderTrays,
+                soldPeti: normSold.peti,
+                soldTrays: normSold.trays,
               });
+            }
+
+            // Cascading recalculation for any subsequent egg records (> date)
+            const subsequentEggRecords = await tx
+              .select()
+              .from(schema.eggDailyRecords)
+              .where(and(eq(schema.eggDailyRecords.flockId, flockId), gt(schema.eggDailyRecords.date, date)))
+              .orderBy(asc(schema.eggDailyRecords.date));
+
+            let runningTrays = todayCumTrays;
+            for (const sub of subsequentEggRecords) {
+              runningTrays += (sub.productionPeti || 0) * 12 + (sub.productionTrays || 0);
+              const subCumPeti = Math.floor(runningTrays / 12);
+              const subCumTrays = runningTrays % 12;
+              await tx
+                .update(schema.eggDailyRecords)
+                .set({
+                  cumulativeProductionPeti: subCumPeti,
+                  cumulativeProductionTrays: subCumTrays,
+                  updatedAt: new Date(),
+                })
+                .where(eq(schema.eggDailyRecords.id, sub.id));
             }
           }
 
@@ -1038,12 +1104,29 @@ export const dailyRecordRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     if (flock.eggTrackingEnabled && data.eggs) {
+      const normToday = normalizePetiTrays(data.eggs.productionPeti, data.eggs.productionTrays);
+      const normSold = normalizePetiTrays(data.eggs.soldPeti, data.eggs.soldTrays);
+
+      const priorEggs = mockStore.eggRecords
+        .filter((r) => r.flockId === flockId && r.date < date)
+        .sort((a, b) => a.date.localeCompare(b.date));
+
+      let priorTraysSum = 0;
+      for (const pe of priorEggs) {
+        priorTraysSum += (pe.productionPeti || 0) * 12 + (pe.productionTrays || 0);
+      }
+      const todayCumTrays = priorTraysSum + normToday.totalTrays;
+      const todayCumPeti = Math.floor(todayCumTrays / 12);
+      const todayCumRemainderTrays = todayCumTrays % 12;
+
       const existing = mockStore.eggRecords.find((r) => r.flockId === flockId && r.date === date);
       if (existing) {
-        existing.productionPeti = data.eggs.productionPeti;
-        existing.productionTrays = data.eggs.productionTrays;
-        existing.soldPeti = data.eggs.soldPeti;
-        existing.soldTrays = data.eggs.soldTrays;
+        existing.productionPeti = normToday.peti;
+        existing.productionTrays = normToday.trays;
+        existing.cumulativeProductionPeti = todayCumPeti;
+        existing.cumulativeProductionTrays = todayCumRemainderTrays;
+        existing.soldPeti = normSold.peti;
+        existing.soldTrays = normSold.trays;
         existing.updatedAt = new Date();
       } else {
         mockStore.eggRecords.push({
@@ -1051,13 +1134,28 @@ export const dailyRecordRoutes: FastifyPluginAsync = async (fastify) => {
           farmId,
           flockId,
           date,
-          productionPeti: data.eggs.productionPeti,
-          productionTrays: data.eggs.productionTrays,
-          soldPeti: data.eggs.soldPeti,
-          soldTrays: data.eggs.soldTrays,
+          productionPeti: normToday.peti,
+          productionTrays: normToday.trays,
+          cumulativeProductionPeti: todayCumPeti,
+          cumulativeProductionTrays: todayCumRemainderTrays,
+          soldPeti: normSold.peti,
+          soldTrays: normSold.trays,
           createdAt: new Date(),
           updatedAt: new Date(),
         });
+      }
+
+      // Cascade to subsequent dates
+      const subsequentEggs = mockStore.eggRecords
+        .filter((r) => r.flockId === flockId && r.date > date)
+        .sort((a, b) => a.date.localeCompare(b.date));
+
+      let running = todayCumTrays;
+      for (const sub of subsequentEggs) {
+        running += (sub.productionPeti || 0) * 12 + (sub.productionTrays || 0);
+        sub.cumulativeProductionPeti = Math.floor(running / 12);
+        sub.cumulativeProductionTrays = running % 12;
+        sub.updatedAt = new Date();
       }
     }
 
