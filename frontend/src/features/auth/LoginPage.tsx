@@ -118,24 +118,7 @@ export const LoginPage: React.FC = () => {
             </button>
           </form>
 
-          {/* Helper Credentials Box */}
-          <div className="mt-6 pt-5 border-t border-zinc-200">
-            <div className="text-[11px] font-mono text-zinc-500 mb-2 font-bold uppercase">
-              System Accounts:
-            </div>
-            <div className="bg-zinc-50 border border-zinc-300 p-2.5 space-y-1.5 text-[11px] font-mono text-zinc-700">
-              <div className="flex items-center justify-between">
-                <span>User: <strong>mujeeb@gmail.com</strong></span>
-                <span className="text-[10px] text-zinc-400">Owns Flock FL-001</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span>Admin: <strong>admin@farm.com</strong></span>
-                <span className="text-[10px] text-zinc-400">Admin Panel Access</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-5 text-center text-xs font-mono text-zinc-600">
+          <div className="mt-6 text-center text-xs font-mono text-zinc-600">
             Don't have an account?{' '}
             <Link to="/register" className="font-bold text-black hover:underline">
               Register here
