@@ -343,8 +343,11 @@ export function createDailyAuditPdf(
   const medDetails = meds.length > 0
     ? meds
         .map((m) => {
-          const dosage = m.dosagePerLiter != null && m.dosagePerLiter > 0 ? ` (${m.dosagePerLiter} ml/L)` : '';
-          return `${m.name || 'Medicine'}${dosage}`;
+          const unit = m.dosageUnit || 'ml';
+          const dosage = m.dosagePerLiter != null && m.dosagePerLiter > 0 ? `${m.dosagePerLiter} ${unit}` : '';
+          const ratio = m.ratio ? `Ratio: ${m.ratio}` : '';
+          const details = [dosage, ratio].filter(Boolean).join(', ');
+          return `${m.name || 'Medicine'}${details ? ` (${details})` : ''}`;
         })
         .join(', ')
     : 'No medication administered';

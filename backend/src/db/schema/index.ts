@@ -161,6 +161,8 @@ export const medicineEntries = pgTable('medicine_entries', {
   dailyRecordId: uuid('daily_record_id').references(() => medicineDailyRecords.id, { onDelete: 'cascade' }).notNull(),
   medicineId: uuid('medicine_id').references(() => medicines.id).notNull(),
   dosagePerLiter: numeric('dosage_per_liter', { precision: 10, scale: 2 }),
+  dosageUnit: varchar('dosage_unit', { length: 10 }).default('ml'),
+  ratio: varchar('ratio', { length: 50 }),
 });
 
 // 12. Vaccination Records

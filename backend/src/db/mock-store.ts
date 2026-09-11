@@ -149,7 +149,7 @@ export interface MockMedicineDailyRecord {
   date: string;
   type: 'water' | 'medicine';
   waterLiters: number;
-  medicines: { medicineId: string; name: string; dosagePerLiter?: number }[];
+  medicines: { medicineId: string; name: string; dosagePerLiter?: number; dosageUnit?: 'ml' | 'gm'; ratio?: string }[];
   createdAt: Date;
   updatedAt: Date;
 }

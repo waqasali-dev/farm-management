@@ -66,6 +66,8 @@ const dailyRecordSaveSchema = z.object({
       medicineId: z.string().optional(),
       name: z.string().optional(),
       dosagePerLiter: z.number().optional(),
+      dosageUnit: z.enum(['ml', 'gm']).optional().default('ml'),
+      ratio: z.string().optional().nullable(),
     })).optional(),
   }).optional(),
   vaccination: z.object({
@@ -137,6 +139,8 @@ async function computeDailyRecordPayload(flockId: string, date: string): Promise
           medicineId: e.medicineId,
           name: allMeds.find((m) => m.id === e.medicineId)?.name || 'Medicine',
           dosagePerLiter: e.dosagePerLiter ? parseFloat(e.dosagePerLiter) : undefined,
+          dosageUnit: (e.dosageUnit as 'ml' | 'gm') || 'ml',
+          ratio: e.ratio || undefined,
         }));
       }
 
@@ -993,6 +997,8 @@ export const dailyRecordRoutes: FastifyPluginAsync = async (fastify) => {
                     dailyRecordId: dailyRecId,
                     medicineId: targetMed.id,
                     dosagePerLiter: med.dosagePerLiter != null ? String(med.dosagePerLiter) : null,
+                    dosageUnit: med.dosageUnit || 'ml',
+                    ratio: med.ratio || null,
                   });
                 }
               }
@@ -1271,6 +1277,8 @@ export const dailyRecordRoutes: FastifyPluginAsync = async (fastify) => {
           medicineId: m.medicineId || crypto.randomUUID(),
           name: m.name || 'Medicine',
           dosagePerLiter: m.dosagePerLiter,
+          dosageUnit: m.dosageUnit || 'ml',
+          ratio: m.ratio || undefined,
         }));
         existing.updatedAt = new Date();
       } else {
@@ -1285,6 +1293,8 @@ export const dailyRecordRoutes: FastifyPluginAsync = async (fastify) => {
             medicineId: m.medicineId || crypto.randomUUID(),
             name: m.name || 'Medicine',
             dosagePerLiter: m.dosagePerLiter,
+            dosageUnit: m.dosageUnit || 'ml',
+            ratio: m.ratio || undefined,
           })),
           createdAt: new Date(),
           updatedAt: new Date(),

@@ -805,7 +805,11 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
           const entries = med ? allEntries.filter((e) => e.dailyRecordId === med.id) : [];
           const medDetails = entries.map((e) => {
             const master = allMedicines.find((m) => m.id === e.medicineId);
-            return `${master?.name || 'Medicine'} (${e.dosagePerLiter || 0} ml/L)`;
+            const unit = e.dosageUnit || 'ml';
+            const dosageStr = e.dosagePerLiter != null && parseFloat(e.dosagePerLiter) > 0 ? `${e.dosagePerLiter} ${unit}` : '';
+            const ratioStr = e.ratio ? `Ratio: ${e.ratio}` : '';
+            const details = [dosageStr, ratioStr].filter(Boolean).join(', ');
+            return `${master?.name || 'Medicine'}${details ? ` (${details})` : ''}`;
           });
 
           const waterLiters = med ? parseFloat(med.waterLiters) : 0;
@@ -858,7 +862,13 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
       const initialBirds = flock?.initialBirds || 10000;
       const remaining = Math.max(0, initialBirds - currentMort);
 
-      const medDetails = (med?.medicines || []).map((m) => `${m.name} (${m.dosagePerLiter || 0} ml/L)`);
+      const medDetails = (med?.medicines || []).map((m) => {
+        const unit = m.dosageUnit || 'ml';
+        const dosageStr = m.dosagePerLiter != null && m.dosagePerLiter > 0 ? `${m.dosagePerLiter} ${unit}` : '';
+        const ratioStr = m.ratio ? `Ratio: ${m.ratio}` : '';
+        const details = [dosageStr, ratioStr].filter(Boolean).join(', ');
+        return `${m.name} (${details || 'Standard'})`;
+      });
       const waterLiters = med?.waterLiters || 0;
       const waterPerBirdMl = calculateWaterPerBirdMl(waterLiters, remaining);
 

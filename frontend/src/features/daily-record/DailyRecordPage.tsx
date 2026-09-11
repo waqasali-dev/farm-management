@@ -101,7 +101,7 @@ export const DailyRecordPage: React.FC = () => {
   const [waterType, setWaterType] = useState<'water' | 'medicine'>('water');
   const [waterLiters, setWaterLiters] = useState<number>(0);
   const [medicineList, setMedicineList] = useState<
-    { medicineId: string; name: string; dosagePerLiter?: number }[]
+    { medicineId: string; name: string; dosagePerLiter?: number; dosageUnit?: 'ml' | 'gm'; ratio?: string }[]
   >([]);
 
   const [vaccineName, setVaccineName] = useState<string>('');
@@ -241,7 +241,13 @@ export const DailyRecordPage: React.FC = () => {
         medicine: {
           type: waterType,
           waterLiters: Number(waterLiters) || 0,
-          medicines: medicineList,
+          medicines: medicineList.map((m) => ({
+            medicineId: m.medicineId,
+            name: m.name,
+            dosagePerLiter: m.dosagePerLiter,
+            dosageUnit: m.dosageUnit || 'ml',
+            ratio: m.ratio && m.ratio.replace(/[\/\s]/g, '') !== '' ? m.ratio : undefined,
+          })),
         },
         vaccination: vaccineName.trim()
           ? {
@@ -1706,6 +1712,7 @@ export const DailyRecordPage: React.FC = () => {
                                 medicineId: defaultMed.id || '',
                                 name: defaultMed.name || 'Tylosin Tartrate',
                                 dosagePerLiter: 1.0,
+                                dosageUnit: 'ml',
                               },
                             ]);
                           }}
@@ -1740,6 +1747,7 @@ export const DailyRecordPage: React.FC = () => {
                                   medicineId: defaultMed.id || '',
                                   name: defaultMed.name || 'Tylosin Tartrate',
                                   dosagePerLiter: 1.0,
+                                  dosageUnit: 'ml',
                                 },
                               ]);
                             }}
@@ -1754,9 +1762,9 @@ export const DailyRecordPage: React.FC = () => {
                         {medicineList.map((m, idx) => (
                           <div
                             key={idx}
-                            className="flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-3 border border-black p-2.5 bg-white shadow-sm"
+                            className="flex flex-wrap items-center gap-2 sm:gap-3 border border-black p-2.5 bg-white shadow-sm"
                           >
-                            <div className="w-full sm:flex-1 relative">
+                            <div className="w-full sm:flex-1 min-w-[180px] relative">
                               <input
                                 type="text"
                                 list="available-medicines-catalog"
@@ -1780,8 +1788,89 @@ export const DailyRecordPage: React.FC = () => {
                               />
                             </div>
 
-                            <div className="flex items-center gap-1 text-xs font-mono shrink-0">
-                              <span className="text-[10px] text-zinc-500 uppercase">Dosage:</span>
+                            {/* Ratio Metric Option (e.g. 1/4, 2/3, anything/anything) */}
+                            {m.ratio !== undefined && m.ratio !== null ? (
+                              <div className="flex items-center gap-1.5 bg-zinc-50 border border-black px-2 py-1 text-xs font-mono shrink-0">
+                                <span className="text-[10px] text-zinc-600 font-bold uppercase tracking-tight">Ratio:</span>
+                                <input
+                                  type="text"
+                                  disabled={flock?.status === 'closed'}
+                                  value={(m.ratio || '').split('/')[0] ?? ''}
+                                  onChange={(e) => {
+                                    const raw = e.target.value;
+                                    const updated = [...medicineList];
+                                    if (raw.includes('/')) {
+                                      const [n, d] = raw.split('/');
+                                      updated[idx] = { ...updated[idx], ratio: `${n.trim()}/${d.trim()}` };
+                                    } else {
+                                      const parts = (m.ratio || '').split('/');
+                                      const denominator = parts[1] ?? '';
+                                      updated[idx] = { ...updated[idx], ratio: `${raw.trim()}/${denominator}` };
+                                    }
+                                    setMedicineList(updated);
+                                  }}
+                                  placeholder="1"
+                                  className="w-12 border border-black px-1 py-0.5 text-xs font-mono text-center focus:outline-none bg-white font-bold"
+                                  title="Numerator (e.g. 1)"
+                                />
+                                <span className="font-bold text-black text-sm select-none">/</span>
+                                <input
+                                  type="text"
+                                  disabled={flock?.status === 'closed'}
+                                  value={(m.ratio || '').split('/')[1] ?? ''}
+                                  onChange={(e) => {
+                                    const raw = e.target.value;
+                                    const parts = (m.ratio || '').split('/');
+                                    const numerator = parts[0] ?? '';
+                                    const updated = [...medicineList];
+                                    updated[idx] = { ...updated[idx], ratio: `${numerator}/${raw.trim()}` };
+                                    setMedicineList(updated);
+                                  }}
+                                  placeholder="4"
+                                  className="w-12 border border-black px-1 py-0.5 text-xs font-mono text-center focus:outline-none bg-white font-bold"
+                                  title="Denominator (e.g. 4)"
+                                />
+                                {flock?.status !== 'closed' && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const updated = [...medicineList];
+                                      const next = { ...updated[idx] };
+                                      delete next.ratio;
+                                      updated[idx] = next;
+                                      setMedicineList(updated);
+                                    }}
+                                    className="text-zinc-400 hover:text-red-600 px-1 font-bold text-sm leading-none transition-colors"
+                                    title="Remove ratio metric"
+                                  >
+                                    ×
+                                  </button>
+                                )}
+                              </div>
+                            ) : (
+                              flock?.status !== 'closed' && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const updated = [...medicineList];
+                                    updated[idx] = {
+                                      ...updated[idx],
+                                      ratio: '1/4',
+                                    };
+                                    setMedicineList(updated);
+                                  }}
+                                  className="border border-dashed border-zinc-400 hover:border-black px-2.5 py-1 text-xs font-mono text-zinc-600 hover:text-black shrink-0 transition-colors flex items-center gap-1.5 bg-zinc-50 hover:bg-white"
+                                  title="Add ratio metric (e.g. 1 / 4, 2 / 3)"
+                                >
+                                  <span className="font-bold text-black">+</span>
+                                  <span>Ratio ( / )</span>
+                                </button>
+                              )
+                            )}
+
+                            {/* Dosage Section: Number + Unit Selector (ml or gm) */}
+                            <div className="flex items-center gap-1 text-xs font-mono shrink-0 bg-white border border-black px-2 py-1">
+                              <span className="text-[10px] text-zinc-500 font-bold uppercase">Dosage:</span>
                               <input
                                 type="number"
                                 step="0.1"
@@ -1798,9 +1887,25 @@ export const DailyRecordPage: React.FC = () => {
                                   setMedicineList(updated);
                                 }}
                                 placeholder="1.0"
-                                className="w-16 border border-black px-2 py-1 text-xs font-mono text-center focus:outline-none"
+                                className="w-16 border border-black px-1.5 py-0.5 text-xs font-mono text-center focus:outline-none bg-white font-bold"
                               />
-                              <span className="font-bold">ml/L</span>
+                              <select
+                                disabled={flock?.status === 'closed'}
+                                value={m.dosageUnit || 'ml'}
+                                onChange={(e) => {
+                                  const updated = [...medicineList];
+                                  updated[idx] = {
+                                    ...updated[idx],
+                                    dosageUnit: e.target.value as 'ml' | 'gm',
+                                  };
+                                  setMedicineList(updated);
+                                }}
+                                className="border border-black px-1 py-0.5 text-xs font-bold bg-zinc-100 cursor-pointer focus:outline-none"
+                                title="Select dosage unit (ml or gm)"
+                              >
+                                <option value="ml">ml</option>
+                                <option value="gm">gm</option>
+                              </select>
                             </div>
 
                             {flock?.status !== 'closed' && (

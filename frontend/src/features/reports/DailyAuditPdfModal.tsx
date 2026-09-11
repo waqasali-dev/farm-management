@@ -392,20 +392,25 @@ export const DailyAuditPdfModal: React.FC<DailyAuditPdfModalProps> = ({
 
                       {(record.medicine?.medicines || []).length > 0 ? (
                         <div className="border border-black mt-1 bg-white">
-                          <div className="bg-zinc-100 border-b border-black px-2 py-1 text-[10px] font-bold uppercase flex justify-between items-center">
-                            <span>Prescribed Medicine</span>
-                            <span className="text-right">Dosage</span>
+                          <div className="bg-zinc-100 border-b border-black px-2 py-1 text-[10px] font-bold uppercase grid grid-cols-12 gap-1">
+                            <span className="col-span-6">Prescribed Medicine</span>
+                            <span className="col-span-3 text-center">Ratio</span>
+                            <span className="col-span-3 text-right">Dosage</span>
                           </div>
                           <div className="divide-y divide-zinc-300">
                             {record.medicine.medicines.map((m, idx) => {
                               const dosage = m.dosagePerLiter ?? 0;
+                              const unit = m.dosageUnit || 'ml';
                               return (
-                                <div key={idx} className="p-1.5 flex justify-between items-center text-[10px]">
-                                  <span className="font-bold text-black uppercase truncate mr-2" title={m.name}>
+                                <div key={idx} className="p-1.5 grid grid-cols-12 gap-1 items-center text-[10px]">
+                                  <span className="col-span-6 font-bold text-black uppercase truncate" title={m.name}>
                                     {m.name || 'Medicine'}
                                   </span>
-                                  <span className="shrink-0 font-mono text-right font-bold text-black">
-                                    {dosage > 0 ? `${dosage} ml/L` : 'Standard'}
+                                  <span className="col-span-3 text-center font-mono font-semibold text-zinc-700">
+                                    {m.ratio ? m.ratio : '--'}
+                                  </span>
+                                  <span className="col-span-3 text-right font-mono font-bold text-black">
+                                    {dosage > 0 ? `${dosage} ${unit}` : 'Standard'}
                                   </span>
                                 </div>
                               );

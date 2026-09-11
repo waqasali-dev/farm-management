@@ -287,7 +287,9 @@ CREATE TABLE IF NOT EXISTS medicine_entries (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     daily_record_id UUID NOT NULL REFERENCES medicine_daily_records(id) ON DELETE CASCADE,
     medicine_id UUID NOT NULL REFERENCES medicines(id) ON DELETE RESTRICT,
-    dosage_per_liter NUMERIC(10, 2) CHECK (dosage_per_liter >= 0)
+    dosage_per_liter NUMERIC(10, 2) CHECK (dosage_per_liter >= 0),
+    dosage_unit VARCHAR(10) DEFAULT 'ml',
+    ratio VARCHAR(50)
 );
 
 CREATE INDEX IF NOT EXISTS idx_entries_daily_record ON medicine_entries(daily_record_id);

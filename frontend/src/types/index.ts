@@ -156,6 +156,8 @@ export interface UnifiedDailyRecord {
       medicineId: string;
       name: string;
       dosagePerLiter?: number;
+      dosageUnit?: 'ml' | 'gm';
+      ratio?: string;
     }[];
   };
   vaccination: {
