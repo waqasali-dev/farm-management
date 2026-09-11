@@ -17,6 +17,11 @@ import {
 import { getCache, setCache } from '../../db/redis.js';
 
 export const dashboardRoutes: FastifyPluginAsync = async (fastify) => {
+  // Enforce authentication for dashboard
+  fastify.addHook('preHandler', async (request, reply) => {
+    await (fastify as any).authenticate(request, reply);
+  });
+
   fastify.get('/flocks/:flockId/dashboard', async (request, reply) => {
     const { flockId } = request.params as { flockId: string };
     const { date: targetDateStr } = request.query as { date?: string };

@@ -12,6 +12,17 @@ import {
 } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
+// 0. Users
+export const users = pgTable('users', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  email: varchar('email', { length: 255 }).notNull().unique(),
+  password: varchar('password', { length: 255 }).notNull(),
+  name: varchar('name', { length: 255 }),
+  role: varchar('role', { length: 20 }).default('user').notNull(), // 'user' | 'admin'
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
 // 1. Farms
 export const farms = pgTable('farms', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -23,6 +34,7 @@ export const farms = pgTable('farms', {
 // 2. Flocks
 export const flocks = pgTable('flocks', {
   id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),
   farmId: uuid('farm_id').references(() => farms.id).notNull(),
   flockCode: varchar('flock_code', { length: 50 }).notNull(),
   name: varchar('name', { length: 255 }),
@@ -210,12 +222,17 @@ export const trayDailyRecords = pgTable('tray_daily_records', {
 ]);
 
 // Relations
+export const usersRelations = relations(users, ({ many }) => ({
+  flocks: many(flocks),
+}));
+
 export const farmsRelations = relations(farms, ({ many }) => ({
   flocks: many(flocks),
   medicines: many(medicines),
 }));
 
 export const flocksRelations = relations(flocks, ({ one, many }) => ({
+  user: one(users, { fields: [flocks.userId], references: [users.id] }),
   farm: one(farms, { fields: [flocks.farmId], references: [farms.id] }),
   birdRecords: many(birdDailyRecords),
   feedRecords: many(feedDailyRecords),

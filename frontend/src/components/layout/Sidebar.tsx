@@ -6,9 +6,11 @@ import {
   Layers, 
   FileSpreadsheet, 
   Settings,
+  ShieldAlert,
   X
 } from 'lucide-react';
 import { Flock } from '../../types/index.js';
+import { useAuth } from '../../context/AuthContext.js';
 
 interface SidebarProps {
   activeFlock: Flock | null;
@@ -19,6 +21,7 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({ activeFlock, isOpen = false, onClose }) => {
   const flockId = activeFlock?.id || '';
   const location = useLocation();
+  const { user } = useAuth();
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -45,6 +48,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeFlock, isOpen = false, o
     }
     if (label === 'System & Infra') {
       return location.pathname === '/settings';
+    }
+    if (label === 'Admin Panel') {
+      return location.pathname === '/admin';
     }
     return false;
   };
@@ -77,6 +83,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeFlock, isOpen = false, o
       to: '/settings',
       icon: Settings,
     },
+    ...(user?.role === 'admin'
+      ? [
+          {
+            label: 'Admin Panel',
+            to: '/admin',
+            icon: ShieldAlert,
+          },
+        ]
+      : []),
   ];
 
   return (

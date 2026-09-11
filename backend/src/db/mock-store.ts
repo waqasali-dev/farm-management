@@ -20,8 +20,19 @@ export interface MockFarm {
   updatedAt: Date;
 }
 
+export interface MockUser {
+  id: string;
+  email: string;
+  password: string;
+  name?: string;
+  role: 'user' | 'admin';
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface MockFlock {
   id: string;
+  userId?: string;
   farmId: string;
   flockCode: string;
   name: string;
@@ -171,6 +182,27 @@ const FLOCK_1_ID = '7d8c0001-4372-4bc1-9e01-0e02b2c3d480';
 const FLOCK_2_ID = '7d8c0002-4372-4bc1-9e02-0e02b2c3d481';
 
 class MockDataStore {
+  users: MockUser[] = [
+    {
+      id: '080adba0-ce7a-47c6-a018-64be909fcebd',
+      email: 'admin@farm.com',
+      password: '',
+      name: 'Farm Administrator',
+      role: 'admin',
+      createdAt: new Date('2026-01-01'),
+      updatedAt: new Date('2026-01-01'),
+    },
+    {
+      id: '8d921479-e8b0-41cc-b864-4316de97b4e1',
+      email: 'mujeeb@gmail.com',
+      password: '',
+      name: 'Mujeeb',
+      role: 'user',
+      createdAt: new Date('2026-01-01'),
+      updatedAt: new Date('2026-01-01'),
+    },
+  ];
+
   farms: MockFarm[] = [
     {
       id: DEMO_FARM_ID,
@@ -183,6 +215,7 @@ class MockDataStore {
   flocks: MockFlock[] = [
     {
       id: FLOCK_1_ID,
+      userId: '8d921479-e8b0-41cc-b864-4316de97b4e1',
       farmId: DEMO_FARM_ID,
       flockCode: 'FL-001',
       name: 'Layer Flock Alpha (High Yield)',
@@ -197,6 +230,7 @@ class MockDataStore {
     },
     {
       id: FLOCK_2_ID,
+      userId: '8d921479-e8b0-41cc-b864-4316de97b4e1',
       farmId: DEMO_FARM_ID,
       flockCode: 'FL-002',
       name: 'Broiler Flock Beta (Meat Batch)',

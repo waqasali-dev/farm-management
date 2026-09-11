@@ -47,10 +47,16 @@ async function refreshFlocksListCache(): Promise<void> {
 }
 
 export const flockRoutes: FastifyPluginAsync = async (fastify) => {
+  // Enforce authentication for all flock routes
+  fastify.addHook('preHandler', async (request, reply) => {
+    await (fastify as any).authenticate(request, reply);
+  });
+
   // GET /api/v1/flocks
   fastify.get('/flocks', async (request) => {
+    const user = (request as any).user;
     const query = request.query as { status?: string };
-    const cacheKey = `flocks:list:${query.status || 'all'}`;
+    const cacheKey = `flocks:list:${user?.id || 'all'}:${query.status || 'all'}`;
 
     // 1. Check Redis first
     const cached = await getCache<any[]>(cacheKey);
@@ -60,10 +66,19 @@ export const flockRoutes: FastifyPluginAsync = async (fastify) => {
 
     if (isDatabaseConnected()) {
       try {
-        let flocksList = await db
-          .select()
-          .from(schema.flocks)
-          .orderBy(desc(schema.flocks.createdAt));
+        let flocksList: any[];
+        if (user?.role === 'admin') {
+          flocksList = await db
+            .select()
+            .from(schema.flocks)
+            .orderBy(desc(schema.flocks.createdAt));
+        } else {
+          flocksList = await db
+            .select()
+            .from(schema.flocks)
+            .where(eq(schema.flocks.userId, user.id))
+            .orderBy(desc(schema.flocks.createdAt));
+        }
 
         if (query.status) {
           flocksList = flocksList.filter((f) => f.status === query.status);
@@ -76,6 +91,9 @@ export const flockRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     let flocks = mockStore.flocks;
+    if (user?.role !== 'admin') {
+      flocks = flocks.filter((f) => f.userId === user?.id);
+    }
     if (query.status) {
       flocks = flocks.filter((f) => f.status === query.status);
     }
@@ -85,12 +103,17 @@ export const flockRoutes: FastifyPluginAsync = async (fastify) => {
 
   // GET /api/v1/flocks/:flockId
   fastify.get('/flocks/:flockId', async (request, reply) => {
+    const user = (request as any).user;
     const { flockId } = request.params as { flockId: string };
     const cacheKey = `flock:${flockId}:meta`;
 
     // 1. Check Redis first
     const cached = await getCache<any>(cacheKey);
     if (cached) {
+      if (cached.userId && cached.userId !== user?.id && user?.role !== 'admin') {
+        reply.status(403);
+        return errorResponse('Access denied to this flock.', 'FORBIDDEN');
+      }
       return successResponse(cached);
     }
 
@@ -105,6 +128,12 @@ export const flockRoutes: FastifyPluginAsync = async (fastify) => {
           reply.status(404);
           return errorResponse('Flock not found', 'NOT_FOUND');
         }
+
+        if (flock.userId && flock.userId !== user?.id && user?.role !== 'admin') {
+          reply.status(403);
+          return errorResponse('Access denied to this flock.', 'FORBIDDEN');
+        }
+
         await setCache(cacheKey, flock, 300);
         return successResponse(flock);
       } catch (err) {
@@ -117,12 +146,19 @@ export const flockRoutes: FastifyPluginAsync = async (fastify) => {
       reply.status(404);
       return errorResponse('Flock not found', 'NOT_FOUND');
     }
+
+    if (flock.userId && flock.userId !== user?.id && user?.role !== 'admin') {
+      reply.status(403);
+      return errorResponse('Access denied to this flock.', 'FORBIDDEN');
+    }
+
     await setCache(cacheKey, flock, 300);
     return successResponse(flock);
   });
 
   // POST /api/v1/flocks
   fastify.post('/flocks', async (request, reply) => {
+    const user = (request as any).user;
     const parsed = createFlockSchema.safeParse(request.body);
     if (!parsed.success) {
       reply.status(400);
@@ -193,6 +229,7 @@ export const flockRoutes: FastifyPluginAsync = async (fastify) => {
             .insert(schema.flocks)
             .values({
               farmId: farm.id,
+              userId: user.id,
               flockCode,
               name,
               companyName: companyName?.trim() || 'S. S. FEED MILLS (PVT) LTD',
@@ -304,6 +341,7 @@ export const flockRoutes: FastifyPluginAsync = async (fastify) => {
     const flockCode = `FL-${String(count).padStart(3, '0')}`;
     const newFlock = {
       id: crypto.randomUUID(),
+      userId: user?.id,
       farmId: mockStore.farms[0]?.id || 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
       flockCode,
       name,
@@ -414,6 +452,7 @@ export const flockRoutes: FastifyPluginAsync = async (fastify) => {
 
   // PATCH /api/v1/flocks/:flockId
   fastify.patch('/flocks/:flockId', async (request, reply) => {
+    const user = (request as any).user;
     const { flockId } = request.params as { flockId: string };
 
     const parsed = updateFlockSchema.safeParse(request.body);
@@ -432,6 +471,11 @@ export const flockRoutes: FastifyPluginAsync = async (fastify) => {
         if (!flock) {
           reply.status(404);
           return errorResponse('Flock not found', 'NOT_FOUND');
+        }
+
+        if (flock.userId && flock.userId !== user?.id && user?.role !== 'admin') {
+          reply.status(403);
+          return errorResponse('Access denied to this flock.', 'FORBIDDEN');
         }
 
         if (flock.status === 'closed') {
@@ -465,6 +509,11 @@ export const flockRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     const currentFlock = mockStore.flocks[flockIndex];
+    if (currentFlock.userId && currentFlock.userId !== user?.id && user?.role !== 'admin') {
+      reply.status(403);
+      return errorResponse('Access denied to this flock.', 'FORBIDDEN');
+    }
+
     if (currentFlock.status === 'closed') {
       reply.status(400);
       return errorResponse('Cannot modify a closed flock. Closed flocks are read-only.', 'FLOCK_CLOSED');
@@ -485,6 +534,7 @@ export const flockRoutes: FastifyPluginAsync = async (fastify) => {
 
   // POST /api/v1/flocks/:flockId/close
   fastify.post('/flocks/:flockId/close', async (request, reply) => {
+    const user = (request as any).user;
     const { flockId } = request.params as { flockId: string };
 
     if (isDatabaseConnected()) {
@@ -497,6 +547,11 @@ export const flockRoutes: FastifyPluginAsync = async (fastify) => {
         if (!flock) {
           reply.status(404);
           return errorResponse('Flock not found', 'NOT_FOUND');
+        }
+
+        if (flock.userId && flock.userId !== user?.id && user?.role !== 'admin') {
+          reply.status(403);
+          return errorResponse('Access denied to this flock.', 'FORBIDDEN');
         }
 
         if (flock.status === 'closed') {
@@ -530,6 +585,11 @@ export const flockRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     const currentFlock = mockStore.flocks[flockIndex];
+    if (currentFlock.userId && currentFlock.userId !== user?.id && user?.role !== 'admin') {
+      reply.status(403);
+      return errorResponse('Access denied to this flock.', 'FORBIDDEN');
+    }
+
     if (currentFlock.status === 'closed') {
       return successResponse(currentFlock);
     }
@@ -550,6 +610,7 @@ export const flockRoutes: FastifyPluginAsync = async (fastify) => {
 
   // DELETE /api/v1/flocks/:flockId
   fastify.delete('/flocks/:flockId', async (request, reply) => {
+    const user = (request as any).user;
     const { flockId } = request.params as { flockId: string };
 
     if (isDatabaseConnected()) {
@@ -562,6 +623,11 @@ export const flockRoutes: FastifyPluginAsync = async (fastify) => {
         if (!flock) {
           reply.status(404);
           return errorResponse('Flock not found', 'NOT_FOUND');
+        }
+
+        if (flock.userId && flock.userId !== user?.id && user?.role !== 'admin') {
+          reply.status(403);
+          return errorResponse('Access denied to this flock.', 'FORBIDDEN');
         }
 
         // Delete all child tables (also handled by PostgreSQL ON DELETE CASCADE)
@@ -594,6 +660,12 @@ export const flockRoutes: FastifyPluginAsync = async (fastify) => {
     if (flockIndex === -1) {
       reply.status(404);
       return errorResponse('Flock not found', 'NOT_FOUND');
+    }
+
+    const currentFlock = mockStore.flocks[flockIndex];
+    if (currentFlock.userId && currentFlock.userId !== user?.id && user?.role !== 'admin') {
+      reply.status(403);
+      return errorResponse('Access denied to this flock.', 'FORBIDDEN');
     }
 
     mockStore.flocks.splice(flockIndex, 1);

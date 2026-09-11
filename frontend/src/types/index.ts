@@ -1,5 +1,23 @@
+export interface User {
+  id: string;
+  email: string;
+  name?: string;
+  role: 'user' | 'admin';
+  createdAt?: string;
+}
+
+export interface AdminUserListItem {
+  id: string;
+  email: string;
+  name?: string;
+  role: 'user' | 'admin';
+  flockCount: number;
+  createdAt: string;
+}
+
 export interface Flock {
   id: string;
+  userId?: string;
   farmId: string;
   flockCode: string;
   name: string;

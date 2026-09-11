@@ -16,6 +16,11 @@ import {
 import { getCache, setCache } from '../../db/redis.js';
 
 export const reportRoutes: FastifyPluginAsync = async (fastify) => {
+  // Enforce authentication for reports
+  fastify.addHook('preHandler', async (request, reply) => {
+    await (fastify as any).authenticate(request, reply);
+  });
+
   // GET /api/v1/flocks/:flockId/reports/summary
   fastify.get('/flocks/:flockId/reports/summary', async (request, reply) => {
     const { flockId } = request.params as { flockId: string };

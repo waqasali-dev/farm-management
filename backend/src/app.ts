@@ -2,8 +2,11 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
+import jwt from '@fastify/jwt';
 import { env } from './config/env.js';
 import { errorResponse } from './utils/response.js';
+import { authRoutes } from './modules/auth/routes.js';
+import { adminRoutes } from './modules/admin/routes.js';
 import { systemRoutes } from './modules/system/routes.js';
 import { flockRoutes } from './modules/flocks/routes.js';
 import { dashboardRoutes } from './modules/dashboard/routes.js';
@@ -72,6 +75,28 @@ export async function buildApp() {
     },
   });
 
+  // JWT Authentication Plugin
+  await app.register(jwt, {
+    secret: env.JWT_SECRET,
+  });
+
+  // Authentication & Admin Decorators
+  app.decorate('authenticate', async (request: any, reply: any) => {
+    try {
+      await request.jwtVerify();
+    } catch (err: any) {
+      reply.status(401).send(errorResponse('Authentication required. Please log in.', 'UNAUTHORIZED'));
+      return reply;
+    }
+  });
+
+  app.decorate('verifyAdmin', async (request: any, reply: any) => {
+    if (!request.user || request.user.role !== 'admin') {
+      reply.status(403).send(errorResponse('Administrative privileges required for this action.', 'FORBIDDEN'));
+      return reply;
+    }
+  });
+
   // Global Error Handler (Section 26 & 42)
   app.setErrorHandler((error: any, request, reply) => {
     app.log.error(error);
@@ -88,6 +113,8 @@ export async function buildApp() {
   // Register API Routes under /api/v1
   await app.register(
     async (v1) => {
+      await v1.register(authRoutes);
+      await v1.register(adminRoutes);
       await v1.register(systemRoutes);
       await v1.register(flockRoutes);
       await v1.register(dashboardRoutes);

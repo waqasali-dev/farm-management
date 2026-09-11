@@ -554,6 +554,11 @@ async function computeDailyRecordPayload(flockId: string, date: string): Promise
 }
 
 export const dailyRecordRoutes: FastifyPluginAsync = async (fastify) => {
+  // Enforce authentication for daily records
+  fastify.addHook('preHandler', async (request, reply) => {
+    await (fastify as any).authenticate(request, reply);
+  });
+
   // GET /api/v1/flocks/:flockId/daily-record?date=YYYY-MM-DD
   fastify.get('/flocks/:flockId/daily-record', async (request, reply) => {
     const { flockId } = request.params as { flockId: string };

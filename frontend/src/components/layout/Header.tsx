@@ -1,7 +1,8 @@
 import React from 'react';
 import { Flock, HealthStatus } from '../../types/index.js';
-import { Layers, Database, Server, Plus, ChevronDown, Menu } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Layers, Database, Server, Plus, ChevronDown, Menu, User, LogOut, ShieldAlert } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext.js';
 
 interface HeaderProps {
   flocks: Flock[];
@@ -21,6 +22,7 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleMobileMenu,
 }) => {
   const navigate = useNavigate();
+  const { user, logout } = useAuth();
 
   const handleFlockChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selected = flocks.find((f) => f.id === e.target.value);
@@ -28,6 +30,11 @@ export const Header: React.FC<HeaderProps> = ({
       onSelectFlock(selected);
       navigate(`/dashboard?flock=${selected.id}`);
     }
+  };
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
   };
 
   const isDbConnected = health?.connections.database.connected;
@@ -60,9 +67,9 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       {/* Global Flock Selector & Infrastructure Badges */}
-      <div className="flex items-center gap-2 sm:gap-4">
+      <div className="flex items-center gap-2 sm:gap-3">
         {/* Connection Status Pills (Hidden on Mobile) */}
-        <div className="hidden lg:flex items-center gap-2 text-[11px] font-mono">
+        <div className="hidden 2xl:flex items-center gap-2 text-[11px] font-mono">
           {/* PostgreSQL Client Status */}
           <div
             className={`flex items-center gap-1.5 px-2 py-1 border ${
@@ -98,14 +105,12 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        <div className="h-6 w-px bg-zinc-300 hidden lg:block" />
-
         {/* Flock Selector Dropdown */}
         <div className="flex items-center gap-1.5 sm:gap-2">
           <label htmlFor="flock-select" className="text-[11px] font-mono uppercase text-zinc-500 font-semibold hidden xl:inline">
-            Active Flock:
+            Flock:
           </label>
-          <div className="relative max-w-[140px] xs:max-w-[180px] sm:max-w-xs md:max-w-sm">
+          <div className="relative max-w-[120px] xs:max-w-[150px] sm:max-w-xs">
             <select
               id="flock-select"
               value={activeFlock?.id || ''}
@@ -129,12 +134,56 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Quick Create Flock Action */}
         <button
           onClick={onOpenCreateModal}
-          className="flex items-center gap-1.5 bg-black text-white border border-black px-2.5 sm:px-3 py-1.5 text-xs font-semibold uppercase tracking-wider hover:bg-zinc-800 transition-colors shadow-[2px_2px_0px_0px_rgba(0,0,0,0.4)] shrink-0"
+          className="hidden sm:flex items-center gap-1.5 bg-black text-white border border-black px-2.5 sm:px-3 py-1.5 text-xs font-semibold uppercase tracking-wider hover:bg-zinc-800 transition-colors shadow-[2px_2px_0px_0px_rgba(0,0,0,0.4)] shrink-0"
           title="Create New Flock"
         >
           <Plus className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">New Flock</span>
+          <span>New Flock</span>
         </button>
+
+        <div className="h-6 w-px bg-zinc-300 hidden sm:block" />
+
+        {/* User Badge & Actions */}
+        {user ? (
+          <div className="flex items-center gap-2">
+            {user.role === 'admin' && (
+              <Link
+                to="/admin"
+                className="hidden md:flex items-center gap-1.5 border border-black bg-white hover:bg-zinc-100 px-2.5 py-1.5 text-xs font-mono font-bold uppercase tracking-wider shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:translate-x-0.5 active:translate-y-0.5 transition-all text-black"
+                title="Open Admin Control Panel"
+              >
+                <ShieldAlert className="w-3.5 h-3.5" />
+                <span>Admin Panel</span>
+              </Link>
+            )}
+
+            <div className="hidden lg:flex flex-col items-end text-right">
+              <span className="text-xs font-mono font-bold text-black max-w-[140px] truncate" title={user.email}>
+                {user.email}
+              </span>
+              <span className={`text-[9px] font-mono uppercase font-bold tracking-wider px-1 border ${
+                user.role === 'admin' ? 'bg-black text-white border-black' : 'bg-zinc-100 text-zinc-700 border-zinc-300'
+              }`}>
+                {user.role}
+              </span>
+            </div>
+
+            <button
+              onClick={handleLogout}
+              className="p-1.5 sm:px-2 sm:py-1.5 border border-black bg-white hover:bg-black hover:text-white text-black transition-colors shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:translate-x-0.5 active:translate-y-0.5"
+              title="Sign Out"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        ) : (
+          <Link
+            to="/login"
+            className="border border-black bg-black text-white px-3 py-1.5 text-xs font-mono font-bold uppercase tracking-wider hover:bg-zinc-800"
+          >
+            Login
+          </Link>
+        )}
       </div>
     </header>
   );

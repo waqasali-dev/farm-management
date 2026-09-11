@@ -1,4 +1,11 @@
-import { DashboardData, Flock, HealthStatus, UnifiedDailyRecord } from '../types/index.js';
+import {
+  DashboardData,
+  Flock,
+  HealthStatus,
+  UnifiedDailyRecord,
+  User,
+  AdminUserListItem,
+} from '../types/index.js';
 
 // Dynamically resolve API_BASE from VITE_API_URL env variable (supports cloud Render & local dev)
 const rawApiUrl = (import.meta.env.VITE_API_URL || '').trim();
@@ -13,11 +20,47 @@ function resolveApiBase(url: string): string {
 
 export const API_BASE = resolveApiBase(rawApiUrl);
 
+const TOKEN_KEY = 'farm_auth_token';
+
+export function getAuthToken(): string | null {
+  try {
+    return localStorage.getItem(TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setAuthToken(token: string | null): void {
+  try {
+    if (token) {
+      localStorage.setItem(TOKEN_KEY, token);
+    } else {
+      localStorage.removeItem(TOKEN_KEY);
+    }
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+export function clearAuthToken(): void {
+  try {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem('farm_auth_user');
+  } catch {
+    // Ignore storage errors
+  }
+}
+
 async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
   const headers: Record<string, string> = {};
 
   if (options?.body) {
     headers['Content-Type'] = 'application/json';
+  }
+
+  const token = getAuthToken();
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
   }
 
   if (options?.headers) {
@@ -29,6 +72,17 @@ async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
     headers,
   });
 
+  if (res.status === 401) {
+    clearAuthToken();
+    if (
+      typeof window !== 'undefined' &&
+      !window.location.pathname.startsWith('/login') &&
+      !window.location.pathname.startsWith('/register')
+    ) {
+      window.location.href = '/login';
+    }
+  }
+
   const payload = await res.json();
   if (!res.ok || payload.error) {
     const message = payload.error?.message || `Request failed with status ${res.status}`;
@@ -38,6 +92,44 @@ async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  // Authentication
+  register: (data: { email: string; password: string; name?: string }) =>
+    fetchJson<{ user: User; token: string }>('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  login: (data: { email: string; password: string }) =>
+    fetchJson<{ user: User; token: string }>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  getMe: () => fetchJson<User>('/auth/me'),
+
+  // Admin User Management
+  getAdminUsers: () => fetchJson<AdminUserListItem[]>('/admin/users'),
+
+  createAdminUser: (data: { email: string; password: string; name?: string; role?: 'user' | 'admin' }) =>
+    fetchJson<User>('/admin/users', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  updateAdminUser: (
+    userId: string,
+    data: { email?: string; name?: string; role?: 'user' | 'admin'; password?: string }
+  ) =>
+    fetchJson<User & { passwordReset?: boolean }>(`/admin/users/${userId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
+  deleteAdminUser: (userId: string) =>
+    fetchJson<{ deleted: boolean; id: string; email: string }>(`/admin/users/${userId}`, {
+      method: 'DELETE',
+    }),
+
   // System Health
   getHealth: () => fetchJson<HealthStatus>('/health'),
 
@@ -66,10 +158,11 @@ export const api = {
       remainingDieselLiters?: number;
       asOfDate?: string;
     };
-  }) => fetchJson<Flock>('/flocks', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  }),
+  }) =>
+    fetchJson<Flock>('/flocks', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
 
   updateFlock: (flockId: string, data: { name?: string; companyName?: string; eggTrackingEnabled?: boolean }) =>
     fetchJson<Flock>(`/flocks/${flockId}`, {
@@ -133,3 +226,19 @@ export const api = {
   // Medicines Master
   getMedicines: () => fetchJson<{ id: string; name: string; active: boolean }[]>('/medicines'),
 };
+
+export const apiClient = {
+  ...api,
+  admin: {
+    getUsers: api.getAdminUsers,
+    createUser: api.createAdminUser,
+    updateUser: api.updateAdminUser,
+    deleteUser: api.deleteAdminUser,
+  },
+  auth: {
+    login: api.login,
+    register: api.register,
+    getMe: api.getMe,
+  },
+};
+
