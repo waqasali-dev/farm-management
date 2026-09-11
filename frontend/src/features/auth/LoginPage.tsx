@@ -74,7 +74,7 @@ export const LoginPage: React.FC = () => {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="e.g. mujeeb@gmail.com"
+                  placeholder="e.g. operator@farm.com"
                   className="w-full pl-9 pr-3 py-2 text-xs font-mono border border-black focus:outline-none focus:ring-1 focus:ring-black bg-white"
                   autoComplete="email"
                 />
