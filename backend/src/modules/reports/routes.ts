@@ -24,7 +24,7 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
   // GET /api/v1/flocks/:flockId/reports/summary
   fastify.get('/flocks/:flockId/reports/summary', async (request, reply) => {
     const { flockId } = request.params as { flockId: string };
-    const cacheKey = `flock:${flockId}:report:summary`;
+    const cacheKey = `flock:${flockId}:report:summary:v2`;
 
     // 1. Check Redis first
     const cached = await getCache<any>(cacheKey);
@@ -81,6 +81,7 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
           }
           const cumEggPeti = Math.floor(cumulativeEggProductionTrays / 12);
           const cumEggTrays = cumulativeEggProductionTrays % 12;
+          const cumEggEggs = cumulativeEggProductionTrays * 30;
 
           return {
             date: b.date,
@@ -97,8 +98,13 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
             eggProductionPct: eggPct,
             cumulativeEggProductionPeti: cumEggPeti,
             cumulativeEggProductionTrays: cumEggTrays,
-            cumulativeEggProductionFormatted: `${cumEggPeti}P, ${cumEggTrays}T`,
-            cumulativeEggProductionEggs: cumulativeEggProductionTrays * 30,
+            cumulativeEggProductionFormatted: `${cumEggPeti.toLocaleString()}P, ${cumEggTrays}T`,
+            cumulativeEggProductionEggs: cumEggEggs,
+            cumulativeProductionPeti: cumEggPeti,
+            cumulativeProductionTrays: cumEggTrays,
+            cumulativeProductionFormatted: `${cumEggPeti.toLocaleString()}P, ${cumEggTrays}T`,
+            cumulativeProductionEggs: cumEggEggs,
+            totalEggsTillDate: cumEggEggs,
             dieselUsedLiters: diesel ? parseFloat(diesel.usedLiters) : 0,
             manureRemoved: Boolean(b.manureRemoved),
           };
@@ -113,7 +119,7 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
             startDate: flock.startDate,
             initialBirds: flock.initialBirds,
           },
-          rows: dailySummaryRows,
+          rows: [...dailySummaryRows].reverse(),
         };
         await setCache(cacheKey, result, 300);
         return successResponse(result);
@@ -152,6 +158,7 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
       }
       const cumEggPeti = Math.floor(cumulativeEggProductionTrays / 12);
       const cumEggTrays = cumulativeEggProductionTrays % 12;
+      const cumEggEggs = cumulativeEggProductionTrays * 30;
 
       return {
         date: b.date,
@@ -166,8 +173,13 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
         eggProductionPct: eggPct,
         cumulativeEggProductionPeti: cumEggPeti,
         cumulativeEggProductionTrays: cumEggTrays,
-        cumulativeEggProductionFormatted: `${cumEggPeti}P, ${cumEggTrays}T`,
-        cumulativeEggProductionEggs: cumulativeEggProductionTrays * 30,
+        cumulativeEggProductionFormatted: `${cumEggPeti.toLocaleString()}P, ${cumEggTrays}T`,
+        cumulativeEggProductionEggs: cumEggEggs,
+        cumulativeProductionPeti: cumEggPeti,
+        cumulativeProductionTrays: cumEggTrays,
+        cumulativeProductionFormatted: `${cumEggPeti.toLocaleString()}P, ${cumEggTrays}T`,
+        cumulativeProductionEggs: cumEggEggs,
+        totalEggsTillDate: cumEggEggs,
         dieselUsedLiters: diesel ? diesel.usedLiters : 0,
       };
     });
@@ -181,7 +193,7 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
         startDate: flock.startDate,
         initialBirds: flock.initialBirds,
       },
-      rows: dailySummaryRows,
+      rows: [...dailySummaryRows].reverse(),
     };
     await setCache(cacheKey, fallbackResult, 300);
     return successResponse(fallbackResult);
@@ -230,7 +242,7 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
           };
         });
 
-        const result = { flock, rows };
+        const result = { flock, rows: [...rows].reverse() };
         await setCache(cacheKey, result, 300);
         return successResponse(result);
       } catch (err) {
@@ -263,7 +275,7 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
       };
     });
 
-    const fallbackResult = { flock, rows };
+    const fallbackResult = { flock, rows: [...rows].reverse() };
     await setCache(cacheKey, fallbackResult, 300);
     return successResponse(fallbackResult);
   });
@@ -302,7 +314,7 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
           };
         });
 
-        const result = { rows };
+        const result = { rows: [...rows].reverse() };
         await setCache(cacheKey, result, 300);
         return successResponse(result);
       } catch (err) {
@@ -329,7 +341,7 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
       };
     });
 
-    const fallbackResult = { rows };
+    const fallbackResult = { rows: [...rows].reverse() };
     await setCache(cacheKey, fallbackResult, 300);
     return successResponse(fallbackResult);
   });
@@ -337,7 +349,7 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
   // GET /api/v1/flocks/:flockId/reports/chips
   fastify.get('/flocks/:flockId/reports/chips', async (request, reply) => {
     const { flockId } = request.params as { flockId: string };
-    const cacheKey = `flock:${flockId}:report:chips`;
+    const cacheKey = `flock:${flockId}:report:chips:v2`;
 
     const cached = await getCache<any>(cacheKey);
     if (cached) {
@@ -364,7 +376,7 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
           };
         });
 
-        const result = { rows };
+        const result = { rows: [...rows].reverse() };
         await setCache(cacheKey, result, 300);
         return successResponse(result);
       } catch (err) {
@@ -388,7 +400,7 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
       };
     });
 
-    const fallbackResult = { rows };
+    const fallbackResult = { rows: [...rows].reverse() };
     await setCache(cacheKey, fallbackResult, 300);
     return successResponse(fallbackResult);
   });
@@ -396,7 +408,7 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
   // GET /api/v1/flocks/:flockId/reports/trays
   fastify.get('/flocks/:flockId/reports/trays', async (request, reply) => {
     const { flockId } = request.params as { flockId: string };
-    const cacheKey = `flock:${flockId}:report:trays`;
+    const cacheKey = `flock:${flockId}:report:trays:v2`;
 
     const cached = await getCache<any>(cacheKey);
     if (cached) {
@@ -428,7 +440,7 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
           };
         });
 
-        const result = { rows };
+        const result = { rows: [...rows].reverse() };
         await setCache(cacheKey, result, 300);
         return successResponse(result);
       } catch (err) {
@@ -457,7 +469,7 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
       };
     });
 
-    const fallbackResult = { rows };
+    const fallbackResult = { rows: [...rows].reverse() };
     await setCache(cacheKey, fallbackResult, 300);
     return successResponse(fallbackResult);
   });
@@ -542,7 +554,7 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
           };
         });
 
-        const result = { rows, enabled: true };
+        const result = { rows: [...rows].reverse(), enabled: true };
         await setCache(cacheKey, result, 300);
         return successResponse(result);
       } catch (err) {
@@ -610,7 +622,7 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
       };
     });
 
-    const fallbackResult = { rows, enabled: true };
+    const fallbackResult = { rows: [...rows].reverse(), enabled: true };
     await setCache(cacheKey, fallbackResult, 300);
     return successResponse(fallbackResult);
   });
@@ -653,7 +665,7 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
           };
         });
 
-        const result = { flock, rows };
+        const result = { flock, rows: [...rows].reverse() };
         await setCache(cacheKey, result, 300);
         return successResponse(result);
       } catch (err) {
@@ -677,7 +689,7 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
       };
     });
 
-    const fallbackResult = { flock: flock || undefined, rows };
+    const fallbackResult = { flock: flock || undefined, rows: [...rows].reverse() };
     await setCache(cacheKey, fallbackResult, 300);
     return successResponse(fallbackResult);
   });
@@ -685,7 +697,7 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
   // GET /api/v1/flocks/:flockId/reports/weight
   fastify.get('/flocks/:flockId/reports/weight', async (request, reply) => {
     const { flockId } = request.params as { flockId: string };
-    const cacheKey = `flock:${flockId}:report:weight`;
+    const cacheKey = `flock:${flockId}:report:weight:v2`;
 
     // 1. Check Redis first
     const cached = await getCache<any>(cacheKey);
@@ -719,7 +731,7 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
           };
         });
 
-        const result = { flock, rows };
+        const result = { flock, rows: [...rows].reverse() };
         await setCache(cacheKey, result, 300);
         return successResponse(result);
       } catch (err) {
@@ -744,7 +756,7 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
       };
     });
 
-    const fallbackResult = { flock: flock || undefined, rows };
+    const fallbackResult = { flock: flock || undefined, rows: [...rows].reverse() };
     await setCache(cacheKey, fallbackResult, 300);
     return successResponse(fallbackResult);
   });
@@ -752,7 +764,7 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
   // GET /api/v1/flocks/:flockId/reports/health
   fastify.get('/flocks/:flockId/reports/health', async (request, reply) => {
     const { flockId } = request.params as { flockId: string };
-    const cacheKey = `flock:${flockId}:report:health`;
+    const cacheKey = `flock:${flockId}:report:health:v2`;
 
     // 1. Check Redis first
     const cached = await getCache<any>(cacheKey);
@@ -831,7 +843,7 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
           };
         });
 
-        const result = { flock, rows };
+        const result = { flock, rows: [...rows].reverse() };
         await setCache(cacheKey, result, 300);
         return successResponse(result);
       } catch (err) {
@@ -888,7 +900,7 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
       };
     });
 
-    const fallbackResult = { flock: flock || undefined, rows };
+    const fallbackResult = { flock: flock || undefined, rows: [...rows].reverse() };
     await setCache(cacheKey, fallbackResult, 300);
     return successResponse(fallbackResult);
   });

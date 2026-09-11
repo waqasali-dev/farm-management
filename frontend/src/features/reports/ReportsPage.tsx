@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { Flock, HealthStatus } from '../../types/index.js';
 import { useReportsQuery } from '../../lib/queries.js';
@@ -30,6 +30,12 @@ export const ReportsPage: React.FC = () => {
     error: queryError,
     refetch,
   } = useReportsQuery(activeFlock?.id, reportType);
+
+  // Reverse order so that the latest records appear on top
+  const rows = useMemo(() => {
+    if (!data?.rows || !Array.isArray(data.rows)) return [];
+    return [...data.rows].sort((a: any, b: any) => (b.date || '').localeCompare(a.date || ''));
+  }, [data?.rows]);
 
   const handleOpenAuditPdf = (date: string) => {
     setSelectedAuditDate(date);
@@ -154,8 +160,8 @@ export const ReportsPage: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-200">
-                    {data?.rows && data.rows.length > 0 ? (
-                      data.rows.map((row: any, i: number) => (
+                    {rows.length > 0 ? (
+                      rows.map((row: any, i: number) => (
                         <tr key={i} className="hover:bg-zinc-50">
                           <td className="py-2 px-3 font-bold">{row.date}</td>
                           <td className="py-2 px-3">{row.age}</td>
@@ -171,7 +177,18 @@ export const ReportsPage: React.FC = () => {
                             <td className="py-2 px-3 font-tabular">{row.eggProductionEggs.toLocaleString()}</td>
                           )}
                           {activeFlock.eggTrackingEnabled && (
-                            <td className="py-2 px-3 font-bold">{row.cumulativeProductionFormatted || `${(row.cumulativeProductionEggs ?? 0).toLocaleString()} eggs`}</td>
+                            <td
+                              className="py-2 px-3 font-bold font-tabular whitespace-nowrap"
+                              title={row.cumulativeEggProductionFormatted || row.cumulativeProductionFormatted || undefined}
+                            >
+                              {(
+                                row.totalEggsTillDate ??
+                                row.cumulativeEggProductionEggs ??
+                                row.cumulativeProductionEggs ??
+                                0
+                              ).toLocaleString()}{' '}
+                              eggs
+                            </td>
                           )}
                           {activeFlock.eggTrackingEnabled && (
                             <td className="py-2 px-3 font-semibold">{row.eggProductionPct}%</td>
@@ -208,8 +225,8 @@ export const ReportsPage: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-200">
-                    {data?.rows && data.rows.length > 0 ? (
-                      data.rows.map((row: any, i: number) => (
+                    {rows.length > 0 ? (
+                      rows.map((row: any, i: number) => (
                         <tr key={i} className="hover:bg-zinc-50">
                           <td className="py-2 px-3 font-bold">{row.date}</td>
                           <td className="py-2 px-3">{row.mortality}</td>
@@ -261,8 +278,8 @@ export const ReportsPage: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-200">
-                    {data?.rows && data.rows.length > 0 ? (
-                      data.rows.map((row: any, i: number) => (
+                    {rows.length > 0 ? (
+                      rows.map((row: any, i: number) => (
                         <tr key={i} className="hover:bg-zinc-50">
                           <td className="py-2 px-3 font-bold">{row.date}</td>
                           <td className="py-2 px-3">{row.arrivalBags}</td>
@@ -300,8 +317,8 @@ export const ReportsPage: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-200">
-                    {data?.rows && data.rows.length > 0 ? (
-                      data.rows.map((row: any, i: number) => (
+                    {rows.length > 0 ? (
+                      rows.map((row: any, i: number) => (
                         <tr key={i} className="hover:bg-zinc-50">
                           <td className="py-2 px-3 font-bold">{row.date}</td>
                           <td className="py-2 px-3">{row.arrivalBags}</td>
@@ -346,8 +363,8 @@ export const ReportsPage: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-200">
-                    {data?.rows && data.rows.length > 0 ? (
-                      data.rows.map((row: any, i: number) => (
+                    {rows.length > 0 ? (
+                      rows.map((row: any, i: number) => (
                         <tr key={i} className="hover:bg-zinc-50">
                           <td className="py-2 px-3 font-bold">{row.date}</td>
                           <td className="py-2 px-3 border-l border-zinc-200">{row.plasticReceived}</td>
@@ -392,8 +409,8 @@ export const ReportsPage: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-200">
-                    {data?.rows && data.rows.length > 0 ? (
-                      data.rows.map((row: any, i: number) => (
+                    {rows.length > 0 ? (
+                      rows.map((row: any, i: number) => (
                         <tr key={i} className="hover:bg-zinc-50">
                           <td className="py-2 px-3 font-bold">{row.date}</td>
                           <td className="py-2 px-3">{row.openingStockFormatted}</td>
@@ -434,8 +451,8 @@ export const ReportsPage: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-200">
-                    {data?.rows && data.rows.length > 0 ? (
-                      data.rows.map((row: any, i: number) => (
+                    {rows.length > 0 ? (
+                      rows.map((row: any, i: number) => (
                         <tr key={i} className="hover:bg-zinc-50">
                           <td className="py-2 px-3 font-bold">{row.date}</td>
                           <td className="py-2 px-3 font-tabular">{row.arrivalLiters.toFixed(1)} L</td>
@@ -469,8 +486,8 @@ export const ReportsPage: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-200">
-                    {data?.rows && data.rows.length > 0 ? (
-                      data.rows.map((row: any, i: number) => (
+                    {rows.length > 0 ? (
+                      rows.map((row: any, i: number) => (
                         <tr key={i} className="hover:bg-zinc-50">
                           <td className="py-2 px-3 font-bold">{row.date}</td>
                           <td className="py-2 px-3 font-semibold">{row.age}</td>
@@ -507,8 +524,8 @@ export const ReportsPage: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-200">
-                    {data?.rows && data.rows.length > 0 ? (
-                      data.rows.map((row: any, i: number) => (
+                    {rows.length > 0 ? (
+                      rows.map((row: any, i: number) => (
                         <tr key={i} className="hover:bg-zinc-50">
                           <td className="py-2 px-3 font-bold">{row.date}</td>
                           <td className="py-2 px-3">
